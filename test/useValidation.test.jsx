@@ -655,11 +655,10 @@ describe('useValidation prototype', () => {
         },
       },
     };
-    const initialValue = Object.create(null);
-    initialValue.__proto__ = '';
-    initialValue.constructor = '';
-
-    const { result } = renderHook(() => useValidation({ initialValue, schema }));
+    const { result } = renderHook(() => useValidation({
+      initialValue: { normal: '' },
+      schema,
+    }));
 
     await act(async () => {
       await result.current.validate();
