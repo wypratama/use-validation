@@ -23,7 +23,11 @@ export type StandardResult = {
 };
 export type StandardSchema = {
     "~standard": {
-        validate: (value: unknown) => StandardResult | Promise<StandardResult>;
+        version: 1;
+        vendor: string;
+        validate: (value: unknown, options?: {
+            libraryOptions?: Record<string, unknown>;
+        }) => StandardResult | Promise<StandardResult>;
     };
 };
 export type ValidatorResult = boolean | string | undefined | Promise<boolean | string | undefined>;
