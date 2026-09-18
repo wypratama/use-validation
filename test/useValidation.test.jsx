@@ -472,6 +472,39 @@ describe('useValidation prototype', () => {
     expect(result.current.errors.profile?._errors).toEqual(['Profile is incomplete']);
   });
 
+  it('keeps Standard Schema array and item errors at the same time', async () => {
+    const { result } = renderHook(() => useValidation({
+      initialValue: {
+        children: [
+          { name: 'Alice' },
+          { name: 'Bob' },
+          { name: '' },
+        ],
+      },
+      schema: z.object({
+        children: z
+          .array(
+            z.object({
+              name: z.string().min(1, 'Child name is required'),
+            }),
+          )
+          .max(2, 'Maximum 2 children'),
+      }),
+    }));
+
+    await act(async () => {
+      await result.current.validate();
+    });
+
+    expect(result.current.errors.children?._errors).toEqual([
+      'Maximum 2 children',
+    ]);
+    expect(result.current.errors.children?.[2]?.name).toEqual([
+      'Child name is required',
+    ]);
+    expect(result.current.valid).toBe(false);
+  });
+
   it('validates a native array and each object item at the same time', async () => {
     const { result } = renderHook(() => useValidation({
       initialValue: {
