@@ -104,6 +104,12 @@ const createErrorContainer = (value) => (
 );
 
 /**
+ * @param {ErrorBag} errors
+ * @returns {boolean}
+ */
+const hasErrors = (errors) => Reflect.ownKeys(errors).length > 0;
+
+/**
  * Add messages to an error tree while preserving the form's shape.
  * Schema issues at structural object/array paths use `_errors` so child
  * errors can coexist at the same path.
@@ -314,7 +320,7 @@ const useValidation = ({ initialValue, validate: rules, schema }) => {
             /** @type {Record<string, any>} */ (rules ?? {}),
             /** @type {FormValue} */ (snapshot),
           );
-      const valid = Object.keys(nextErrors).length === 0;
+      const valid = !hasErrors(nextErrors);
       const latest = id === validationId.current;
       if (latest) setErrors(nextErrors);
       return latest ? valid : false;
@@ -323,14 +329,20 @@ const useValidation = ({ initialValue, validate: rules, schema }) => {
     }
   }, [rules, schema, value]);
 
+  const executeValidationRef = useRef(executeValidation);
+  executeValidationRef.current = executeValidation;
+
   const validate = useCallback(async () => {
     activeRef.current = true;
     return executeValidation();
   }, [executeValidation]);
 
   const onChange = useCallback(() => {
-    if (activeRef.current) void executeValidation();
-  }, [executeValidation]);
+    if (!activeRef.current) return;
+    void executeValidationRef.current().catch((error) => {
+      console.error('[use-validation] automatic validation failed', error);
+    });
+  }, []);
 
   const observedValue = useMemo(
     () => createObservedProxy(value, onChange),
@@ -355,7 +367,7 @@ const useValidation = ({ initialValue, validate: rules, schema }) => {
   return {
     value: observedValue,
     errors: /** @type {any} */ (errors),
-    valid: Object.keys(errors).length === 0,
+    valid: !hasErrors(errors),
     validating,
     validate,
     reset,
