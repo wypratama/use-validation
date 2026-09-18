@@ -340,6 +340,7 @@ const useValidation = ({ initialValue, validate: rules, schema }) => {
 
   const validate = useCallback(async () => {
     activeRef.current = true;
+    revalidationQueuedRef.current = false;
     return executeValidation();
   }, [executeValidation]);
 
@@ -347,6 +348,7 @@ const useValidation = ({ initialValue, validate: rules, schema }) => {
     if (!activeRef.current || revalidationQueuedRef.current) return;
     revalidationQueuedRef.current = true;
     queueMicrotask(() => {
+      if (!revalidationQueuedRef.current) return;
       revalidationQueuedRef.current = false;
       if (!activeRef.current) return;
       void executeValidationRef.current().catch((error) => {
