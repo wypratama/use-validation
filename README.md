@@ -97,11 +97,17 @@ form.errors._form
 // ['Passwords do not match']
 ```
 
+`_errors` and `_form` are reserved by the error-tree representation. Avoid using those names as form field keys if you need to address their validation errors through `form.errors`.
+
 Native array rules validate the array as a whole. For item-level array validation, use a Standard Schema.
 
 ## Standard Schema
 
-The same `schema` option accepts Standard Schema implementations. Zod and modern Yup are tested directly; the package does not need a resolver or runtime dependency on either library.
+The same `schema` option accepts **any Standard Schema-compatible validator**. The integration is not specific to Zod or Yup: current Zod, Yup, Valibot, ArkType, Joi and other Standard Schema implementations can use the same API, while non-standard validators can be used through an adapter that implements Standard Schema.
+
+VeeValidate's legacy `toTypedSchema()` wrappers and raw JSON Schema objects are different interfaces and are not accepted directly. Modern validators that already implement Standard Schema should be passed directly.
+
+`use-validation` uses schemas for validation only. If a Standard Schema implementation coerces or transforms its successful output, that output is not written back into `form.value`; the form remains the value the user mutated.
 
 ```jsx
 import { z } from 'zod'
@@ -138,7 +144,7 @@ form.validate()  validate now and return Promise<boolean>
 form.reset()     restore initial values and clear validation state
 ```
 
-`form.valid` starts `true` because the initial error bag is empty. Use the boolean returned by `validate()` for submit-time control flow; use `form.valid` as reactive UI state. Each async validation runs against a snapshot of the form. If an explicit `validate()` becomes stale because the form changes while it is running, that call resolves `false` and the newer validation owns the reactive error state.
+`form.valid` starts `true` because the initial error bag is empty. Use the boolean returned by `validate()` for submit-time control flow; use `form.valid` as reactive UI state. Each async validation runs against a snapshot of the form. If an explicit `validate()` becomes stale because the form changes while it is running, that call resolves `false` and the newer validation owns the reactive error state. Automatic validation uses the latest rules/schema even when a previously captured `form.value` reference is mutated.
 
 `reset()` restores the initial value, empties the error bag, sets `valid` back to `true`, and deactivates automatic revalidation until `validate()` is explicitly called again.
 
