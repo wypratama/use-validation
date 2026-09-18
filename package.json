@@ -1,6 +1,6 @@
 {
   "name": "@wypratama/use-validation",
-  "version": "1.0.0-beta.0",
+  "version": "0.1.0",
   "description": "Tiny reactive form validation for React",
   "type": "module",
   "main": "index.js",
@@ -30,7 +30,8 @@
     "check:types": "npm run build:types && git diff --exit-code -- index.d.ts",
     "lint:pack": "publint",
     "prepack": "npm run build:types",
-    "check:pack": "node scripts/check-pack.mjs"
+    "check:pack": "node scripts/check-pack.mjs",
+    "changelog": "changelogen"
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0"
@@ -41,6 +42,7 @@
   "devDependencies": {
     "@testing-library/react": "^16.3.0",
     "@types/react": "^19.3.0",
+    "changelogen": "^0.6.2",
     "jsdom": "^29.1.1",
     "oxlint": "^1.82.0",
     "publint": "^0.3.24",
