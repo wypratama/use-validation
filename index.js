@@ -13,10 +13,10 @@ const STANDARD_SCHEMA = '~standard';
  * while objects and arrays contain nested error values.
  *
  * @template T
- * @typedef {T extends readonly unknown[]
- *   ? (Array<ErrorTree<T[number]> | undefined> & { _errors?: string[] })
- *   : T extends object
- *     ? ({ [K in keyof T]?: ErrorTree<T[K]> } & { _errors?: string[] })
+ * @typedef {T extends readonly (infer U)[]
+ *   ? Array<ErrorTree<U> | undefined>
+ *   : T extends FormValue
+ *     ? { [K in keyof T]?: ErrorTree<T[K]> }
  *     : string[]} ErrorTree
  */
 /** @typedef {{ message: string, path?: readonly IssuePathSegment[] }} StandardIssue */
@@ -24,10 +24,9 @@ const STANDARD_SCHEMA = '~standard';
 /** @typedef {{ '~standard': { validate: (value: unknown) => StandardResult | Promise<StandardResult> } }} StandardSchema */
 /** @typedef {boolean | string | undefined | Promise<boolean | string | undefined>} ValidatorResult */
 /** @typedef {(value: any, form: FormValue) => ValidatorResult} Validator */
-/** @typedef {Record<string, Record<string, Validator>>} ValidationRules */
 /**
- * Native validation mirrors the form shape. Structural object fields may
- * either contain nested rules or validators for the object itself.
+ * Native validation mirrors nested object fields. Arrays are validated as a
+ * whole value; array-item schemas are better expressed with Standard Schema.
  *
  * @template {FormValue} T
  * @template {FormValue} Root
@@ -35,7 +34,7 @@ const STANDARD_SCHEMA = '~standard';
  *   T[K] extends readonly unknown[]
  *     ? Record<string, (value: T[K], form: Root) => ValidatorResult>
  *     : T[K] extends FormValue
- *       ? ValidationRulesFor<T[K], Root> | Record<string, (value: T[K], form: Root) => ValidatorResult>
+ *       ? ValidationRulesFor<T[K], Root>
  *       : Record<string, (value: T[K], form: Root) => ValidatorResult>
  * }} ValidationRulesFor
  */
@@ -101,8 +100,8 @@ const createErrorContainer = (value) => (
 
 /**
  * Add messages to an error tree while preserving the form's shape.
- * Structural object/array errors live in `_errors` so child errors can
- * coexist at the same path.
+ * Schema issues at structural object/array paths use `_errors` so child
+ * errors can coexist at the same path.
  *
  * @param {ErrorBag} errors
  * @param {FormValue} form
@@ -198,7 +197,7 @@ const runRuleNode = async (node, value, form, path, errors) => {
       value?.[field],
       form,
       [...path, field],
-      errors,
+      errors: /** @type {any} */ (errors),
     );
   }
 };
