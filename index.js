@@ -11,8 +11,13 @@ const STANDARD_SCHEMA = '~standard';
 /** @typedef {{ message: string, path?: readonly IssuePathSegment[] }} StandardIssue */
 /** @typedef {{ issues?: readonly StandardIssue[] }} StandardResult */
 /** @typedef {{ '~standard': { validate: (value: unknown) => StandardResult | Promise<StandardResult> } }} StandardSchema */
-/** @typedef {(value: any, form: FormValue) => boolean | string | undefined | Promise<boolean | string | undefined>} Validator */
+/** @typedef {boolean | string | undefined | Promise<boolean | string | undefined>} ValidatorResult */
+/** @typedef {(value: any, form: FormValue) => ValidatorResult} Validator */
 /** @typedef {Record<string, Record<string, Validator>>} ValidationRules */
+/**
+ * @template {FormValue} T
+ * @typedef {{ [K in keyof T]?: Record<string, (value: T[K], form: T) => ValidatorResult> }} ValidationRulesFor
+ */
 
 /**
  * @param {unknown} value
@@ -147,7 +152,7 @@ const createObservedProxy = (value, onChange, cache = new WeakMap()) => {
  * @template {FormValue} T
  * @param {{
  *   initialValue: T,
- *   validate?: Partial<Record<keyof T, Record<string, (value: any, form: T) => boolean|string|undefined|Promise<boolean|string|undefined>>>>,
+ *   validate?: ValidationRulesFor<T>,
  *   schema?: StandardSchema
  * }} options
  * @returns {{
