@@ -104,6 +104,7 @@ describe('useValidation prototype', () => {
       await result.current.validate();
     });
     expect(result.current.valid).toBe(false);
+    expect(result.current.errors.profile?.email?.length).toBeGreaterThan(0);
 
     act(() => {
       result.current.value.profile.email = 'nested@example.com';
@@ -236,6 +237,65 @@ describe('useValidation prototype', () => {
     expect(result.current.errors).toEqual({});
   });
 
+  it('mirrors nested native rules and errors to the form shape', async () => {
+    const { result } = renderHook(() => useValidation({
+      initialValue: {
+        profile: {
+          email: '',
+          name: '',
+        },
+      },
+      validate: {
+        profile: {
+          email: {
+            required: (value) => Boolean(value) || 'Email is required',
+          },
+          name: {
+            required: (value) => Boolean(value) || 'Name is required',
+          },
+        },
+      },
+    }));
+
+    await act(async () => {
+      await result.current.validate();
+    });
+
+    expect(result.current.errors.profile?.email).toEqual(['Email is required']);
+    expect(result.current.errors.profile?.name).toEqual(['Name is required']);
+
+    act(() => {
+      result.current.value.profile.email = 'nested@example.com';
+      result.current.value.profile.name = 'Wicak';
+    });
+
+    await waitFor(() => expect(result.current.valid).toBe(true));
+    expect(result.current.errors).toEqual({});
+  });
+
+  it('stores structural field-level errors in _errors', async () => {
+    const { result } = renderHook(() => useValidation({
+      initialValue: { profile: { email: '' } },
+      validate: {
+        profile: {
+          complete: (value) => Boolean(value.email) || 'Profile is incomplete',
+        },
+      },
+    }));
+
+    await act(async () => {
+      await result.current.validate();
+    });
+
+    expect(result.current.errors.profile?._errors).toEqual(['Profile is incomplete']);
+
+    act(() => {
+      result.current.value.profile.email = 'complete@example.com';
+    });
+
+    await waitFor(() => expect(result.current.valid).toBe(true));
+  });
+
   it('keeps cross-field rules in sync after activation', async () => {
     const { result } = renderHook(() => useValidation({
       initialValue: { password: 'secret', confirm: 'wrong' },
@@ -281,7 +341,7 @@ describe('useValidation prototype', () => {
       result.current.value.tags.push('');
     });
     await waitFor(() => expect(result.current.valid).toBe(false));
-    expect(result.current.errors.tags).toEqual(['Tag is required']);
+    expect(result.current.errors.tags?.[1]).toEqual(['Tag is required']);
 
     act(() => {
       result.current.value.tags[1] = 'fixed';
