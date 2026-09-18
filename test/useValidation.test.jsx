@@ -304,7 +304,7 @@ describe('useValidation prototype', () => {
     await act(async () => {
       await result.current.validate();
     });
-    expect(result.current.errors.tags).toEqual(['Add at least one tag']);
+    expect(result.current.errors.tags?._errors).toEqual(['Add at least one tag']);
 
     act(() => {
       result.current.value.tags.push('react');
