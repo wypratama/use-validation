@@ -6,6 +6,7 @@ import useReactive from 'react-use-reactive';
 const STANDARD_SCHEMA = '~standard';
 
 /** @typedef {Record<string, any>} FormValue */
+/** @typedef {Date | RegExp | Map<any, any> | Set<any> | WeakMap<object, any> | WeakSet<object> | Function} OpaqueValue */
 /** @typedef {Record<PropertyKey, any>} ErrorBag */
 /** @typedef {{ key: PropertyKey } | PropertyKey} IssuePathSegment */
 /**
@@ -13,11 +14,13 @@ const STANDARD_SCHEMA = '~standard';
  * while objects and arrays contain nested error values.
  *
  * @template T
- * @typedef {T extends readonly (infer U)[]
- *   ? (Array<ErrorTree<U> | undefined> & { _errors?: string[] })
- *   : T extends FormValue
- *     ? ({ [K in keyof T]?: ErrorTree<T[K]> } & { _errors?: string[] })
- *     : string[]} ErrorTree
+ * @typedef {T extends OpaqueValue
+ *   ? string[]
+ *   : T extends readonly (infer U)[]
+ *     ? (Array<ErrorTree<U> | undefined> & { _errors?: string[] })
+ *     : T extends object
+ *       ? ({ [K in keyof T]?: ErrorTree<T[K]> } & { _errors?: string[] })
+ *       : string[]} ErrorTree
  */
 /** @typedef {{ message: string, path?: readonly IssuePathSegment[] }} StandardIssue */
 /** @typedef {{ issues?: readonly StandardIssue[] }} StandardResult */
@@ -28,14 +31,16 @@ const STANDARD_SCHEMA = '~standard';
  * Native validation mirrors nested object fields. Arrays are validated as a
  * whole value; array-item schemas are better expressed with Standard Schema.
  *
- * @template {FormValue} T
+ * @template {object} T
  * @template {FormValue} Root
  * @typedef {{ [K in keyof T]?:
- *   T[K] extends readonly unknown[]
+ *   T[K] extends OpaqueValue
  *     ? Record<string, (value: T[K], form: Root) => ValidatorResult>
- *     : T[K] extends FormValue
- *       ? ValidationRulesFor<T[K], Root>
- *       : Record<string, (value: T[K], form: Root) => ValidatorResult>
+ *     : T[K] extends readonly unknown[]
+ *       ? Record<string, (value: T[K], form: Root) => ValidatorResult>
+ *       : T[K] extends object
+ *         ? ValidationRulesFor<T[K], Root>
+ *         : Record<string, (value: T[K], form: Root) => ValidatorResult>
  * }} ValidationRulesFor
  */
 
