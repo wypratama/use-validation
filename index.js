@@ -26,6 +26,21 @@ const STANDARD_SCHEMA = '~standard';
 const isObject = (value) => value !== null && typeof value === 'object';
 
 /**
+ * Only plain objects and arrays need recursive mutation observation.
+ * Opaque values such as Date, Map, File and class instances must retain their
+ * original identity and built-in behavior.
+ *
+ * @param {unknown} value
+ * @returns {value is object}
+ */
+const isStructural = (value) => {
+  if (Array.isArray(value)) return true;
+  if (!isObject(value)) return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+};
+
+/**
  * Clone the initial plain data so reset is not affected by later mutations.
  * Opaque object values stay by reference, matching react-use-reactive's leaf semantics.
  *
@@ -117,7 +132,7 @@ const runSchema = async (schema, value) => {
  * @returns {T}
  */
 const createObservedProxy = (value, onChange, cache = new WeakMap()) => {
-  if (!isObject(value)) return value;
+  if (!isStructural(value)) return value;
 
   const cached = cache.get(value);
   if (cached) return /** @type {T} */ (cached);
