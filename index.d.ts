@@ -56,7 +56,7 @@ export type ValidationRulesFor<T extends object, Root extends FormValue> = { [K 
  *   valid: boolean,
  *   validating: boolean,
  *   validate: () => Promise<boolean>,
- *   reset: () => void
+ *   reset: (nextInitialValue?: T) => void
  * }}
  */
 declare function useValidation<T extends FormValue>({ initialValue, validate: rules, schema }: {
@@ -71,5 +71,5 @@ declare function useValidation<T extends FormValue>({ initialValue, validate: ru
     valid: boolean;
     validating: boolean;
     validate: () => Promise<boolean>;
-    reset: () => void;
+    reset: (nextInitialValue?: T) => void;
 };
