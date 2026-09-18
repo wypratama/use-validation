@@ -587,11 +587,11 @@ describe('useValidation prototype', () => {
     await waitFor(() => expect(rule).toHaveBeenCalledTimes(2));
   });
 
-  it('observes array mutations through the validation wrapper', async () => {
+  it('supports dynamic array growth, shrink, and reindexed errors', async () => {
     const { result } = renderHook(() => useValidation({
-      initialValue: { tags: ['ready'] },
+      initialValue: { children: ['Alice'] },
       schema: z.object({
-        tags: z.array(z.string().min(1, 'Tag is required')),
+        children: z.array(z.string().min(1, 'Child name is required')),
       }),
     }));
 
@@ -601,15 +601,38 @@ describe('useValidation prototype', () => {
     expect(result.current.valid).toBe(true);
 
     act(() => {
-      result.current.value.tags.push('');
+      result.current.value.children.push('');
     });
     await waitFor(() => expect(result.current.valid).toBe(false));
-    expect(result.current.errors.tags?.[1]).toEqual(['Tag is required']);
+    expect(result.current.errors.children?.[1]).toEqual([
+      'Child name is required',
+    ]);
 
     act(() => {
-      result.current.value.tags[1] = 'fixed';
+      result.current.value.children.splice(0, 1);
+    });
+    await waitFor(() => {
+      expect(result.current.errors.children?.[0]).toEqual([
+        'Child name is required',
+      ]);
+    });
+    expect(result.current.errors.children?.[1]).toBeUndefined();
+
+    act(() => {
+      result.current.value.children[0] = 'Bob';
+      result.current.value.children.push('');
+    });
+    await waitFor(() => {
+      expect(result.current.errors.children?.[1]).toEqual([
+        'Child name is required',
+      ]);
+    });
+
+    act(() => {
+      result.current.value.children.pop();
     });
     await waitFor(() => expect(result.current.valid).toBe(true));
+    expect(result.current.errors).toEqual({});
   });
 
   it('observes nested deletes and object replacement', async () => {
