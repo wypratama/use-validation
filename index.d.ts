@@ -37,7 +37,6 @@ export type ValidationRulesFor<T extends FormValue> = { [K in keyof T]?: Record<
  *   value: T,
  *   errors: ErrorMap,
  *   valid: boolean,
- *   dirty: boolean,
  *   validating: boolean,
  *   validate: () => Promise<boolean>,
  *   reset: () => void
@@ -51,7 +50,6 @@ declare function useValidation<T extends FormValue>({ initialValue, validate: ru
     value: T;
     errors: ErrorMap;
     valid: boolean;
-    dirty: boolean;
     validating: boolean;
     validate: () => Promise<boolean>;
     reset: () => void;
