@@ -197,7 +197,7 @@ const runRuleNode = async (node, value, form, path, errors) => {
       value?.[field],
       form,
       [...path, field],
-      errors: /** @type {any} */ (errors),
+      errors,
     );
   }
 };
