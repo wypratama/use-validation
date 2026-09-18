@@ -198,7 +198,7 @@ const runRuleNode = async (node, value, form, path, errors) => {
       value?.[field],
       form,
       [...path, field],
-      errors: /** @type {ErrorTree<T> & { _form?: string[] }} */ (errors),
+      errors,
     );
   }
 };
