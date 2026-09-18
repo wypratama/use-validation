@@ -174,7 +174,6 @@ const createObservedProxy = (value, onChange, cache = new WeakMap()) => {
  *   value: T,
  *   errors: ErrorMap,
  *   valid: boolean,
- *   dirty: boolean,
  *   validating: boolean,
  *   validate: () => Promise<boolean>,
  *   reset: () => void
@@ -189,9 +188,8 @@ const useValidation = ({ initialValue, validate: rules, schema }) => {
   const value = useReactive(initialValue);
   /** @type {[ErrorMap, import('react').Dispatch<import('react').SetStateAction<ErrorMap>>]} */
   const [errors, setErrors] = useState(/** @type {ErrorMap} */ ({}));
-  const [dirty, setDirty] = useState(false);
   const [validating, setValidating] = useState(false);
-  const dirtyRef = useRef(false);
+  const activeRef = useRef(false);
   const validationId = useRef(0);
 
   const executeValidation = useCallback(async () => {
@@ -213,15 +211,12 @@ const useValidation = ({ initialValue, validate: rules, schema }) => {
   }, [rules, schema, value]);
 
   const validate = useCallback(async () => {
-    if (!dirtyRef.current) {
-      dirtyRef.current = true;
-      setDirty(true);
-    }
+    activeRef.current = true;
     return executeValidation();
   }, [executeValidation]);
 
   const onChange = useCallback(() => {
-    if (dirtyRef.current) void executeValidation();
+    if (activeRef.current) void executeValidation();
   }, [executeValidation]);
 
   const observedValue = useMemo(
@@ -239,8 +234,7 @@ const useValidation = ({ initialValue, validate: rules, schema }) => {
     for (const key of Reflect.ownKeys(initial.current)) {
       Reflect.set(value, key, cloneInitial(Reflect.get(initial.current, key)));
     }
-    dirtyRef.current = false;
-    setDirty(false);
+    activeRef.current = false;
     setValidating(false);
     setErrors({});
   }, [value]);
@@ -249,7 +243,6 @@ const useValidation = ({ initialValue, validate: rules, schema }) => {
     value: observedValue,
     errors,
     valid: Object.keys(errors).length === 0,
-    dirty,
     validating,
     validate,
     reset,
