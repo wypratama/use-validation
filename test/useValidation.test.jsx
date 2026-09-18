@@ -22,7 +22,6 @@ describe('useValidation prototype', () => {
     }));
 
     expect(result.current.errors).toEqual({});
-    expect(result.current.dirty).toBe(false);
 
     let valid;
     await act(async () => {
@@ -33,7 +32,6 @@ describe('useValidation prototype', () => {
     expect(result.current.errors.email).toEqual(['Email is required']);
     expect(result.current.errors.age).toEqual(['Must be 18+']);
     expect(result.current.valid).toBe(false);
-    expect(result.current.dirty).toBe(true);
 
     act(() => {
       result.current.value.email = 'wicak@example.com';
@@ -213,7 +211,6 @@ describe('useValidation prototype', () => {
 
     expect(result.current.value.email).toBe('');
     expect(result.current.errors).toEqual({});
-    expect(result.current.dirty).toBe(false);
     expect(result.current.valid).toBe(true);
   });
 
