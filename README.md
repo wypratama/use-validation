@@ -126,26 +126,55 @@ Arrays are normal reactive values. You do not need a field-array hook to add or 
 Use normal JavaScript array operations:
 
 ```js
-form.value.children.push('')
+form.value.children.push({
+  name: '',
+  age: 0,
+  idNumber: '',
+})
+
 form.value.children.splice(index, 1)
 ```
 
-Use a Standard Schema when you need validation for each array item. The error tree uses the same array indexes as the value.
+Native validation can validate the complete array and each item at the same time.
+
+Use `$self` for rules on the complete array. Use `$each` for rules on each current item.
 
 ```jsx
-import { z } from 'zod'
 import useValidation from '@wypratama/use-validation'
 
 function ChildrenForm() {
   const form = useValidation({
     initialValue: {
-      children: [''],
+      children: [
+        { name: '', age: 0, idNumber: '' },
+      ],
     },
-    schema: z.object({
-      children: z.array(
-        z.string().min(1, 'Child name is required'),
-      ),
-    }),
+    validate: {
+      children: {
+        $self: {
+          maxTwo: children => (
+            children.length <= 2 || 'Maximum 2 children'
+          ),
+        },
+        $each: {
+          name: {
+            required: value => (
+              Boolean(value) || 'Child name is required'
+            ),
+          },
+          age: {
+            required: value => (
+              value > 0 || 'Child age is required'
+            ),
+          },
+          idNumber: {
+            required: value => (
+              Boolean(value) || 'Child ID is required'
+            ),
+          },
+        },
+      },
+    },
   })
 
   async function submit(event) {
@@ -159,19 +188,68 @@ function ChildrenForm() {
 
   return (
     <form onSubmit={submit}>
-      {form.value.children.map((child, index) => (
-        <div key={index}>
-          <input
-            value={child}
-            className={form.errors.children?.[index] ? 'border-red' : ''}
-            onChange={event => {
-              form.value.children[index] = event.target.value
-            }}
-          />
+      {form.errors.children?._errors?.[0] && (
+        <small className="text-red">
+          {form.errors.children._errors[0]}
+        </small>
+      )}
 
-          {form.errors.children?.[index]?.[0] && (
+      {form.value.children.map((child, index) => (
+        <fieldset key={index}>
+          <label>
+            Name
+
+            <input
+              value={child.name}
+              className={
+                form.errors.children?.[index]?.name
+                  ? 'border-red'
+                  : ''
+              }
+              onChange={event => {
+                form.value.children[index].name = event.target.value
+              }}
+            />
+          </label>
+
+          {form.errors.children?.[index]?.name?.[0] && (
             <small className="text-red">
-              {form.errors.children[index][0]}
+              {form.errors.children[index].name[0]}
+            </small>
+          )}
+
+          <label>
+            Age
+
+            <input
+              type="number"
+              value={child.age}
+              onChange={event => {
+                form.value.children[index].age = Number(event.target.value)
+              }}
+            />
+          </label>
+
+          {form.errors.children?.[index]?.age?.[0] && (
+            <small className="text-red">
+              {form.errors.children[index].age[0]}
+            </small>
+          )}
+
+          <label>
+            ID number
+
+            <input
+              value={child.idNumber}
+              onChange={event => {
+                form.value.children[index].idNumber = event.target.value
+              }}
+            />
+          </label>
+
+          {form.errors.children?.[index]?.idNumber?.[0] && (
+            <small className="text-red">
+              {form.errors.children[index].idNumber[0]}
             </small>
           )}
 
@@ -183,13 +261,17 @@ function ChildrenForm() {
           >
             Remove child
           </button>
-        </div>
+        </fieldset>
       ))}
 
       <button
         type="button"
         onClick={() => {
-          form.value.children.push('')
+          form.value.children.push({
+            name: '',
+            age: 0,
+            idNumber: '',
+          })
         }}
       >
         Add child
@@ -203,13 +285,57 @@ function ChildrenForm() {
 }
 ```
 
+An array-level error uses `_errors`:
+
+```js
+form.errors.children?._errors
+// ['Maximum 2 children']
+```
+
+An item-level error follows the current array index and field name:
+
+```js
+form.errors.children?.[0]?.name
+// ['Child name is required']
+```
+
+You can use `$each` with arrays of scalar values too. In that case, each item receives its own error array.
+
+If you only need rules for the complete array, you can use the shorter form:
+
+```js
+validate: {
+  children: {
+    maxTwo: children => (
+      children.length <= 2 || 'Maximum 2 children'
+    ),
+  },
+}
+```
+
+Standard Schema supports the same two validation levels. Put array rules on the array schema and item rules on the item schema.
+
+```js
+schema: z.object({
+  children: z
+    .array(
+      z.object({
+        name: z.string().min(1, 'Child name is required'),
+        age: z.number().positive('Child age is required'),
+        idNumber: z.string().min(1, 'Child ID is required'),
+      }),
+    )
+    .max(2, 'Maximum 2 children'),
+})
+```
+
+Both validation modes can produce an array-level error and item-level errors at the same time.
+
 The array length can change at any time. `push()`, `pop()`, `splice()`, and index assignments work with the reactive value.
 
-Before the first submit, these operations do not start validation. After the first `validate()`, they update item errors automatically.
+Before the first submit, these operations do not start validation. After the first `validate()`, they update errors automatically.
 
-If an operation changes an item index, the next validation result uses the new index. For example, an error can move from index 1 to index 0.
-
-Native rules can validate an array as one field. Use a Standard Schema when you need separate errors for array items.
+If an operation changes an item index, the next validation result uses the new index.
 
 ## Edit forms
 
