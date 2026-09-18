@@ -273,14 +273,15 @@ describe('useValidation prototype', () => {
     expect(result.current.errors).toEqual({});
   });
 
-  it('stores structural field-level errors in _errors', async () => {
+  it('keeps schema errors attached to structural paths without losing child shape', async () => {
     const { result } = renderHook(() => useValidation({
       initialValue: { profile: { email: '' } },
-      validate: {
-        profile: {
-          complete: (value) => Boolean(value.email) || 'Profile is incomplete',
-        },
-      },
+      schema: z.object({
+        profile: z.object({ email: z.string() }),
+      }).refine(
+        (value) => Boolean(value.profile.email),
+        { path: ['profile'], message: 'Profile is incomplete' },
+      ),
     }));
 
     await act(async () => {
@@ -288,11 +289,26 @@ describe('useValidation prototype', () => {
     });
 
     expect(result.current.errors.profile?._errors).toEqual(['Profile is incomplete']);
+  });
+
+  it('validates native array fields as a whole value', async () => {
+    const { result } = renderHook(() => useValidation({
+      initialValue: { tags: [] },
+      validate: {
+        tags: {
+          required: (value) => value.length > 0 || 'Add at least one tag',
+        },
+      },
+    }));
+
+    await act(async () => {
+      await result.current.validate();
+    });
+    expect(result.current.errors.tags).toEqual(['Add at least one tag']);
 
     act(() => {
-      result.current.value.profile.email = 'complete@example.com';
+      result.current.value.tags.push('react');
     });
-
     await waitFor(() => expect(result.current.valid).toBe(true));
   });
 
