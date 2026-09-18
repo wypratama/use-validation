@@ -134,7 +134,9 @@ const addErrors = (errors, form, path, messages) => {
 
   for (let index = 0; index < path.length; index += 1) {
     const key = path[index];
-    const nextValue = currentValue?.[key];
+    const nextValue = isObject(currentValue) && Object.hasOwn(currentValue, key)
+      ? currentValue[key]
+      : undefined;
     const last = index === path.length - 1;
 
     if (last) {
