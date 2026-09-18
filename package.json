@@ -1,64 +1,73 @@
 {
+  "name": "@wypratama/use-validation",
   "version": "0.1.0",
-  "license": "MIT",
-  "main": "dist/index.js",
-  "typings": "dist/index.d.ts",
+  "description": "Tiny reactive form validation for React",
+  "type": "module",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js",
+      "default": "./index.js"
+    }
+  },
   "files": [
-    "dist",
-    "src"
+    "index.js",
+    "index.d.ts",
+    "README.md",
+    "LICENSE"
   ],
+  "sideEffects": false,
   "engines": {
-    "node": ">=10"
+    "node": ">=18"
   },
   "scripts": {
-    "start": "tsdx watch",
-    "build": "tsdx build",
-    "test": "tsdx test --passWithNoTests",
-    "lint": "tsdx lint",
-    "prepare": "tsdx build",
-    "size": "size-limit",
-    "analyze": "size-limit --why"
+    "test": "vitest run",
+    "lint": "oxlint index.js test",
+    "typecheck": "tsc --noEmit",
+    "build:types": "tsc -p tsconfig.build.json",
+    "check:types": "npm run build:types && git diff --exit-code -- index.d.ts",
+    "lint:pack": "publint",
+    "prepack": "npm run build:types",
+    "check:pack": "node scripts/check-pack.mjs",
+    "changelog": "changelogen"
   },
   "peerDependencies": {
-    "react": ">=16"
+    "react": "^18.0.0 || ^19.0.0"
   },
-  "husky": {
-    "hooks": {
-      "pre-commit": "tsdx lint"
-    }
+  "dependencies": {
+    "react-use-reactive": "^2.0.0-beta.1"
   },
-  "prettier": {
-    "printWidth": 80,
-    "semi": true,
-    "singleQuote": true,
-    "trailingComma": "es5"
-  },
-  "name": "@wypratama/use-validation",
-  "author": "Wicaksana Pratama",
-  "module": "dist/use-validation.esm.js",
-  "size-limit": [
-    {
-      "path": "dist/use-validation.cjs.production.min.js",
-      "limit": "10 KB"
-    },
-    {
-      "path": "dist/use-validation.esm.js",
-      "limit": "10 KB"
-    }
-  ],
   "devDependencies": {
-    "@size-limit/preset-small-lib": "^8.2.4",
-    "@types/react": "^18.2.0",
-    "@types/react-dom": "^18.2.1",
-    "husky": "^8.0.3",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "size-limit": "^8.2.4",
-    "tsdx": "^0.14.1",
-    "tslib": "^2.5.0",
-    "typescript": "^5.0.4"
+    "@testing-library/react": "^16.3.0",
+    "@types/react": "^19.3.0",
+    "changelogen": "^0.6.2",
+    "jsdom": "^29.1.1",
+    "oxlint": "^1.82.0",
+    "publint": "^0.3.24",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11",
+    "yup": "^1.7.1",
+    "zod": "^4.1.5"
   },
   "publishConfig": {
-    "registry": "https://registry.npmjs.org"
-  }
+    "access": "public"
+  },
+  "license": "MIT",
+  "author": "Wicaksana Pratama",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wypratama/use-validation.git"
+  },
+  "keywords": [
+    "react",
+    "validation",
+    "form",
+    "hook",
+    "standard-schema"
+  ],
+  "packageManager": "npm@11.17.0"
 }
