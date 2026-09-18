@@ -640,7 +640,7 @@ describe('useValidation prototype', () => {
     expect(result.current.validating).toBe(false);
   });
 
-  it('supports prototype-like field names in Standard Schema issue paths', async () => {
+  it('normalizes prototype-like Standard Schema issue paths safely', async () => {
     const schema = {
       '~standard': {
         version: 1,
