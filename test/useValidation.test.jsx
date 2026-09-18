@@ -261,6 +261,118 @@ describe('useValidation prototype', () => {
     expect(renderToString(<App />)).toContain('server@example.com');
   });
 
+  it('keeps programmatic edit-data loading dormant before first validation', () => {
+    const phoneRequired = vi.fn((value) => Boolean(value) || 'Phone is required');
+    const { result } = renderHook(() => useValidation({
+      initialValue: { username: '', phone: '' },
+      validate: {
+        username: { required: (value) => Boolean(value) || 'Username is required' },
+        phone: { required: phoneRequired },
+      },
+    }));
+
+    act(() => {
+      result.current.value.username = 'legacy-user';
+      result.current.value.phone = '';
+    });
+
+    expect(phoneRequired).not.toHaveBeenCalled();
+    expect(result.current.errors).toEqual({});
+    expect(result.current.valid).toBe(true);
+  });
+
+  it('loads an edit baseline with reset without exposing legacy validation errors', async () => {
+    const { result } = renderHook(() => useValidation({
+      initialValue: { username: '', phone: '' },
+      validate: {
+        username: { required: (value) => Boolean(value) || 'Username is required' },
+        phone: { required: (value) => Boolean(value) || 'Phone is required' },
+      },
+    }));
+
+    act(() => {
+      result.current.reset({
+        username: 'legacy-user',
+        phone: '',
+      });
+    });
+
+    expect(result.current.value).toMatchObject({
+      username: 'legacy-user',
+      phone: '',
+    });
+    expect(result.current.errors).toEqual({});
+    expect(result.current.valid).toBe(true);
+
+    await act(async () => {
+      await result.current.validate();
+    });
+
+    expect(result.current.errors.phone).toEqual(['Phone is required']);
+    expect(result.current.valid).toBe(false);
+
+    act(() => {
+      result.current.value.phone = '08123456789';
+    });
+
+    await waitFor(() => expect(result.current.valid).toBe(true));
+
+    act(() => {
+      result.current.reset();
+    });
+
+    expect(result.current.value).toMatchObject({
+      username: 'legacy-user',
+      phone: '',
+    });
+    expect(result.current.errors).toEqual({});
+    expect(result.current.valid).toBe(true);
+  });
+
+  it('keeps programmatic mutations reactive after validation has activated', async () => {
+    const { result } = renderHook(() => useValidation({
+      initialValue: { country: 'ID', phone: '08123' },
+      validate: {
+        phone: {
+          required: (value) => Boolean(value) || 'Phone is required',
+        },
+      },
+    }));
+
+    await act(async () => {
+      await result.current.validate();
+    });
+    expect(result.current.valid).toBe(true);
+
+    act(() => {
+      // This could be application logic reacting to another field interaction.
+      result.current.value.country = 'SG';
+      result.current.value.phone = '';
+    });
+
+    await waitFor(() => {
+      expect(result.current.errors.phone).toEqual(['Phone is required']);
+    });
+  });
+
+  it('can stay view-only forever without activating validation', () => {
+    const required = vi.fn((value) => Boolean(value) || 'Required');
+    const { result } = renderHook(() => useValidation({
+      initialValue: { phone: '' },
+      validate: { phone: { required } },
+    }));
+
+    act(() => {
+      // Data hydration/update in a read-only form component.
+      result.current.value.phone = '';
+    });
+
+    expect(required).not.toHaveBeenCalled();
+    expect(result.current.errors).toEqual({});
+    expect(result.current.valid).toBe(true);
+    expect(result.current.validating).toBe(false);
+  });
+
   it('resets value and validation state', async () => {
     const { result } = renderHook(() => useValidation({
       initialValue: { email: '' },
