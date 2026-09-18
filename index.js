@@ -300,7 +300,7 @@ const createObservedProxy = (value, onChange, cache = new WeakMap()) => {
  *   valid: boolean,
  *   validating: boolean,
  *   validate: () => Promise<boolean>,
- *   reset: () => void
+ *   reset: (nextInitialValue?: T) => void
  * }}
  */
 const useValidation = ({ initialValue, validate: rules, schema }) => {
@@ -364,8 +364,13 @@ const useValidation = ({ initialValue, validate: rules, schema }) => {
     [onChange, value],
   );
 
-  const reset = useCallback(() => {
+  const reset = useCallback((nextInitialValue) => {
     ++validationId.current;
+
+    if (nextInitialValue !== undefined) {
+      initial.current = cloneInitial(nextInitialValue);
+    }
+
     for (const key of Reflect.ownKeys(value)) {
       if (!Object.hasOwn(initial.current, key)) {
         Reflect.deleteProperty(value, key);
@@ -374,6 +379,7 @@ const useValidation = ({ initialValue, validate: rules, schema }) => {
     for (const key of Reflect.ownKeys(initial.current)) {
       Reflect.set(value, key, cloneInitial(Reflect.get(initial.current, key)));
     }
+
     activeRef.current = false;
     revalidationQueuedRef.current = false;
     setValidating(false);
