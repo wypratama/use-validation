@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { act, renderHook, waitFor } from '@testing-library/react';
+import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import * as yup from 'yup';
 import { z } from 'zod';
@@ -111,6 +112,69 @@ describe('useValidation prototype', () => {
     });
 
     await waitFor(() => expect(result.current.valid).toBe(true));
+  });
+
+  it('keeps a captured root value reference live across reactive rerenders', async () => {
+    const { result } = renderHook(() => useValidation({
+      initialValue: { email: '' },
+      validate: {
+        email: { required: (value) => Boolean(value) || 'Required' },
+      },
+    }));
+    const value = result.current.value;
+
+    await act(async () => {
+      await result.current.validate();
+    });
+    expect(result.current.valid).toBe(false);
+
+    act(() => {
+      value.email = 'first@example.com';
+    });
+    await waitFor(() => expect(result.current.valid).toBe(true));
+
+    act(() => {
+      value.email = '';
+    });
+    await waitFor(() => expect(result.current.valid).toBe(false));
+  });
+
+  it('keeps a captured nested value reference live across reactive rerenders', async () => {
+    const { result } = renderHook(() => useValidation({
+      initialValue: { profile: { email: '' } },
+      schema: z.object({
+        profile: z.object({ email: z.string().email() }),
+      }),
+    }));
+    const profile = result.current.value.profile;
+
+    await act(async () => {
+      await result.current.validate();
+    });
+
+    act(() => {
+      profile.email = 'held@example.com';
+    });
+    await waitFor(() => expect(result.current.valid).toBe(true));
+
+    act(() => {
+      profile.email = 'invalid';
+    });
+    await waitFor(() => expect(result.current.valid).toBe(false));
+  });
+
+  it('can render on the server without running validation', () => {
+    const App = () => {
+      const form = useValidation({
+        initialValue: { email: 'server@example.com' },
+        validate: {
+          email: { required: (value) => Boolean(value) || 'Required' },
+        },
+      });
+      return <span>{form.value.email}</span>;
+    };
+
+    expect(renderToString(<App />)).toContain('server@example.com');
   });
 
   it('resets value and validation state', async () => {
