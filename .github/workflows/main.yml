@@ -5,6 +5,10 @@ on:
     branches: [master]
   pull_request:
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
     name: Lint, type-check, test, and verify package (React 19)
