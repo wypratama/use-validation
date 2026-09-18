@@ -100,7 +100,7 @@ const pathKey = (segment) => (
  * @returns {ErrorBag}
  */
 const createErrorContainer = (value) => (
-  Array.isArray(value) ? [] : {}
+  Array.isArray(value) ? [] : Object.create(null)
 );
 
 /**
@@ -162,7 +162,7 @@ const addErrors = (errors, form, path, messages) => {
  */
 const normalizeIssues = (issues = [], value) => {
   /** @type {ErrorBag} */
-  const errors = {};
+  const errors = Object.create(null);
   for (const issue of issues) {
     const path = (issue.path ?? []).map(pathKey);
     addErrors(errors, value, path, [String(issue.message)]);
@@ -220,7 +220,7 @@ const runRuleNode = async (node, value, form, path, errors) => {
  */
 const runRules = async (rules, value) => {
   /** @type {ErrorBag} */
-  const errors = {};
+  const errors = Object.create(null);
   await runRuleNode(rules, value, value, [], errors);
   return errors;
 };
@@ -313,6 +313,7 @@ const useValidation = ({ initialValue, validate: rules, schema }) => {
   const [validating, setValidating] = useState(false);
   const activeRef = useRef(false);
   const validationId = useRef(0);
+  const revalidationQueuedRef = useRef(false);
 
   const executeValidation = useCallback(async () => {
     const id = ++validationId.current;
@@ -343,9 +344,14 @@ const useValidation = ({ initialValue, validate: rules, schema }) => {
   }, [executeValidation]);
 
   const onChange = useCallback(() => {
-    if (!activeRef.current) return;
-    void executeValidationRef.current().catch((error) => {
-      console.error('[use-validation] automatic validation failed', error);
+    if (!activeRef.current || revalidationQueuedRef.current) return;
+    revalidationQueuedRef.current = true;
+    queueMicrotask(() => {
+      revalidationQueuedRef.current = false;
+      if (!activeRef.current) return;
+      void executeValidationRef.current().catch((error) => {
+        console.error('[use-validation] automatic validation failed', error);
+      });
     });
   }, []);
 
@@ -365,8 +371,9 @@ const useValidation = ({ initialValue, validate: rules, schema }) => {
       Reflect.set(value, key, cloneInitial(Reflect.get(initial.current, key)));
     }
     activeRef.current = false;
+    revalidationQueuedRef.current = false;
     setValidating(false);
-    setErrors({});
+    setErrors(Object.create(null));
   }, [value]);
 
   return {
