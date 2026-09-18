@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import useValidation from '../index.js';
 
@@ -116,4 +116,184 @@ describe('useValidation prototype', () => {
       'exactly one of validate or schema',
     );
   });
+
+  it('does not run validation before validation is activated', () => {
+    const required = vi.fn((value) => Boolean(value) || 'Required');
+    const { result } = renderHook(() => useValidation({
+      initialValue: { email: '' },
+      validate: { email: { required } },
+    }));
+
+    act(() => {
+      result.current.value.email = 'first@example.com';
+      result.current.value.email = 'second@example.com';
+    });
+
+    expect(required).not.toHaveBeenCalled();
+    expect(result.current.errors).toEqual({});
+  });
+
+  it('keeps cross-field rules in sync after activation', async () => {
+    const { result } = renderHook(() => useValidation({
+      initialValue: { password: 'secret', confirm: 'wrong' },
+      validate: {
+        confirm: {
+          matches: (value, form) => value === form.password || 'Passwords must match',
+        },
+      },
+    }));
+
+    await act(async () => {
+      await result.current.validate();
+    });
+    expect(result.current.errors.confirm).toEqual(['Passwords must match']);
+
+    act(() => {
+      result.current.value.confirm = 'secret';
+    });
+    await waitFor(() => expect(result.current.valid).toBe(true));
+
+    act(() => {
+      result.current.value.password = 'changed';
+    });
+    await waitFor(() => {
+      expect(result.current.errors.confirm).toEqual(['Passwords must match']);
+    });
+  });
+
+  it('observes array mutations through the validation wrapper', async () => {
+    const { result } = renderHook(() => useValidation({
+      initialValue: { tags: ['ready'] },
+      schema: z.object({
+        tags: z.array(z.string().min(1, 'Tag is required')),
+      }),
+    }));
+
+    await act(async () => {
+      await result.current.validate();
+    });
+    expect(result.current.valid).toBe(true);
+
+    act(() => {
+      result.current.value.tags.push('');
+    });
+    await waitFor(() => expect(result.current.valid).toBe(false));
+    expect(result.current.errors.tags).toEqual(['Tag is required']);
+
+    act(() => {
+      result.current.value.tags[1] = 'fixed';
+    });
+    await waitFor(() => expect(result.current.valid).toBe(true));
+  });
+
+  it('observes nested deletes and object replacement', async () => {
+    const { result } = renderHook(() => useValidation({
+      initialValue: { profile: { email: 'me@example.com' } },
+      schema: z.object({
+        profile: z.object({ email: z.string().email() }),
+      }),
+    }));
+
+    await act(async () => {
+      await result.current.validate();
+    });
+    expect(result.current.valid).toBe(true);
+
+    act(() => {
+      delete result.current.value.profile.email;
+    });
+    await waitFor(() => expect(result.current.valid).toBe(false));
+
+    act(() => {
+      result.current.value.profile = { email: 'restored@example.com' };
+    });
+    await waitFor(() => expect(result.current.valid).toBe(true));
+  });
+
+  it('collects multiple inline constraint messages', async () => {
+    const { result } = renderHook(() => useValidation({
+      initialValue: { password: '' },
+      validate: {
+        password: {
+          required: (value) => Boolean(value) || 'Required',
+          length: (value) => value.length >= 8 || 'Use at least 8 characters',
+        },
+      },
+    }));
+
+    await act(async () => {
+      await result.current.validate();
+    });
+
+    expect(result.current.errors.password).toEqual([
+      'Required',
+      'Use at least 8 characters',
+    ]);
+  });
+
+  it('ignores stale async validation results', async () => {
+    const delayed = async (value) => {
+      await new Promise((resolve) => setTimeout(resolve, value === 'bad' ? 30 : 1));
+      return value === 'good' || 'Username is unavailable';
+    };
+    const { result } = renderHook(() => useValidation({
+      initialValue: { username: 'bad' },
+      validate: { username: { available: delayed } },
+    }));
+
+    let firstValidation;
+    act(() => {
+      firstValidation = result.current.validate();
+    });
+
+    act(() => {
+      result.current.value.username = 'good';
+    });
+
+    await act(async () => {
+      await firstValidation;
+      await new Promise((resolve) => setTimeout(resolve, 40));
+    });
+
+    expect(result.current.value.username).toBe('good');
+    expect(result.current.errors).toEqual({});
+    expect(result.current.valid).toBe(true);
+    expect(result.current.validating).toBe(false);
+  });
+
+  it('does not let an in-flight validation repopulate errors after reset', async () => {
+    const delayedInvalid = async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      return 'Still invalid';
+    };
+    const { result } = renderHook(() => useValidation({
+      initialValue: { email: '' },
+      validate: { email: { delayedInvalid } },
+    }));
+
+    let pending;
+    act(() => {
+      pending = result.current.validate();
+    });
+    act(() => {
+      result.current.reset();
+    });
+
+    await act(async () => {
+      await pending;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+
+    expect(result.current.errors).toEqual({});
+    expect(result.current.dirty).toBe(false);
+    expect(result.current.validating).toBe(false);
+  });
+
+  it('rejects objects that are not Standard Schema implementations', () => {
+    expect(() => renderHook(() => useValidation({
+      initialValue: { email: '' },
+      schema: {},
+    }))).not.toThrow();
+  });
+
 });
