@@ -100,3 +100,9 @@ const nestedSchema = useValidation({
 
 nestedSchema.errors.users?.[0]?.email?.[0]?.toUpperCase();
 nestedSchema.errors.users?._errors?.[0]?.toUpperCase();
+
+inline.reset({ email: 'loaded@example.com', age: 42 });
+inline.reset();
+
+// @ts-expect-error reset baseline must match the form value shape
+inline.reset({ email: 'missing-age@example.com' });
