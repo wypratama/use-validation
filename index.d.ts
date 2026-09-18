@@ -11,9 +11,7 @@ export type IssuePathSegment = {
  */
 export type ErrorTree<T> = T extends OpaqueValue ? string[] : T extends readonly (infer U)[] ? (Array<ErrorTree<U> | undefined> & {
     _errors?: string[];
-}) : T extends object ? ({
-    [K in keyof T]?: ErrorTree<T[K]>;
-} & {
+}) : T extends object ? ({ [K in keyof T]?: ErrorTree<T[K]>; } & {
     _errors?: string[];
 }) : string[];
 export type StandardIssue = {
@@ -34,9 +32,7 @@ export type Validator = (value: any, form: FormValue) => ValidatorResult;
  * Native validation mirrors nested object fields. Arrays are validated as a
  * whole value; array-item schemas are better expressed with Standard Schema.
  */
-export type ValidationRulesFor<T extends object, Root extends FormValue> = {
-    [K in keyof T]?: T[K] extends OpaqueValue ? Record<string, (value: T[K], form: Root) => ValidatorResult> : T[K] extends readonly unknown[] ? Record<string, (value: T[K], form: Root) => ValidatorResult> : T[K] extends object ? ValidationRulesFor<T[K], Root> : Record<string, (value: T[K], form: Root) => ValidatorResult>;
-};
+export type ValidationRulesFor<T extends object, Root extends FormValue> = { [K in keyof T]?: T[K] extends OpaqueValue ? Record<string, (value: T[K], form: Root) => ValidatorResult> : T[K] extends readonly unknown[] ? Record<string, (value: T[K], form: Root) => ValidatorResult> : T[K] extends object ? ValidationRulesFor<T[K], Root> : Record<string, (value: T[K], form: Root) => ValidatorResult>; };
 /**
  * Creates a tiny reactive form value with validation.
  *
