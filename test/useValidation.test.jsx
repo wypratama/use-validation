@@ -114,6 +114,22 @@ describe('useValidation prototype', () => {
     await waitFor(() => expect(result.current.valid).toBe(true));
   });
 
+  it('leaves opaque object values unproxied and usable', () => {
+    const createdAt = new Date('2026-01-02T03:04:05.000Z');
+    const metadata = new Map([['role', 'admin']]);
+    const { result } = renderHook(() => useValidation({
+      initialValue: { createdAt, metadata },
+      validate: {
+        createdAt: { present: (value) => value instanceof Date || 'Invalid date' },
+      },
+    }));
+
+    expect(result.current.value.createdAt).toBe(createdAt);
+    expect(result.current.value.createdAt.getTime()).toBe(createdAt.getTime());
+    expect(result.current.value.metadata).toBe(metadata);
+    expect(result.current.value.metadata.get('role')).toBe('admin');
+  });
+
   it('keeps a captured root value reference live across reactive rerenders', async () => {
     const { result } = renderHook(() => useValidation({
       initialValue: { email: '' },
