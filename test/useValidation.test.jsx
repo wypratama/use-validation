@@ -409,6 +409,49 @@ describe('useValidation prototype', () => {
     });
   });
 
+  it('batches one synchronous mutation turn into one automatic validation', async () => {
+    const required = vi.fn((value) => value.length > 0 || 'Add a tag');
+    const { result } = renderHook(() => useValidation({
+      initialValue: { tags: [] },
+      validate: { tags: { required } },
+    }));
+
+    await act(async () => {
+      await result.current.validate();
+    });
+    required.mockClear();
+
+    act(() => {
+      result.current.value.tags.push('react');
+    });
+
+    await waitFor(() => expect(result.current.valid).toBe(true));
+    expect(required).toHaveBeenCalledTimes(1);
+  });
+
+  it('batches several synchronous field writes into one automatic validation', async () => {
+    const rule = vi.fn(() => true);
+    const { result } = renderHook(() => useValidation({
+      initialValue: { first: '', second: '' },
+      validate: {
+        first: { rule },
+        second: { rule },
+      },
+    }));
+
+    await act(async () => {
+      await result.current.validate();
+    });
+    rule.mockClear();
+
+    act(() => {
+      result.current.value.first = 'a';
+      result.current.value.second = 'b';
+    });
+
+    await waitFor(() => expect(rule).toHaveBeenCalledTimes(2));
+  });
+
   it('observes array mutations through the validation wrapper', async () => {
     const { result } = renderHook(() => useValidation({
       initialValue: { tags: ['ready'] },
@@ -595,6 +638,40 @@ describe('useValidation prototype', () => {
 
     expect(result.current.errors).toEqual({});
     expect(result.current.validating).toBe(false);
+  });
+
+  it('supports prototype-like field names in Standard Schema issue paths', async () => {
+    const schema = {
+      '~standard': {
+        version: 1,
+        vendor: 'prototype-path-test',
+        validate() {
+          return {
+            issues: [
+              { path: ['__proto__'], message: 'Reserved-looking field is invalid' },
+              { path: ['constructor'], message: 'Constructor field is invalid' },
+            ],
+          };
+        },
+      },
+    };
+    const initialValue = Object.create(null);
+    initialValue.__proto__ = '';
+    initialValue.constructor = '';
+
+    const { result } = renderHook(() => useValidation({ initialValue, schema }));
+
+    await act(async () => {
+      await result.current.validate();
+    });
+
+    expect(result.current.valid).toBe(false);
+    expect(result.current.errors.__proto__).toEqual([
+      'Reserved-looking field is invalid',
+    ]);
+    expect(result.current.errors.constructor).toEqual([
+      'Constructor field is invalid',
+    ]);
   });
 
   it('treats symbol-path Standard Schema issues as real errors', async () => {
