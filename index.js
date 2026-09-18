@@ -364,8 +364,9 @@ const useValidation = ({ initialValue, validate: rules, schema }) => {
     [onChange, value],
   );
 
-  /** @param {T} [nextInitialValue] */
-  const reset = useCallback((nextInitialValue) => {
+  const reset = useCallback(
+    /** @param {T} [nextInitialValue] */
+    (nextInitialValue) => {
     ++validationId.current;
 
     if (nextInitialValue !== undefined) {
@@ -385,7 +386,9 @@ const useValidation = ({ initialValue, validate: rules, schema }) => {
     revalidationQueuedRef.current = false;
     setValidating(false);
     setErrors(Object.create(null));
-  }, [value]);
+    },
+    [value],
+  );
 
   return {
     value: observedValue,
