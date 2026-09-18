@@ -43,6 +43,7 @@ try {
     path.join(nodeModules, 'react-use-reactive'),
     'dir',
   );
+  mkdirSync(path.join(nodeModules, '@wypratama'), { recursive: true });
   cpSync(path.join(work, 'package'), path.join(nodeModules, '@wypratama', 'use-validation'), {
     recursive: true,
   });
