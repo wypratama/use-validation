@@ -42,6 +42,45 @@ describe('useValidation prototype', () => {
     expect(result.current.errors).toEqual({});
   });
 
+  it('integrates the Standard Schema contract without vendor-specific behavior', async () => {
+    const schema = {
+      '~standard': {
+        version: 1,
+        vendor: 'test-schema',
+        validate(value) {
+          if (value.account?.email === 'standard@example.com') {
+            return { value };
+          }
+          return {
+            issues: [{
+              path: ['account', 'email'],
+              message: 'Use the Standard Schema address',
+            }],
+          };
+        },
+      },
+    };
+
+    const { result } = renderHook(() => useValidation({
+      initialValue: { account: { email: '' } },
+      schema,
+    }));
+
+    await act(async () => {
+      await result.current.validate();
+    });
+
+    expect(result.current.errors.account?.email).toEqual([
+      'Use the Standard Schema address',
+    ]);
+
+    act(() => {
+      result.current.value.account.email = 'standard@example.com';
+    });
+
+    await waitFor(() => expect(result.current.valid).toBe(true));
+  });
+
   it('accepts a Standard Schema implementation such as Zod', async () => {
     const { result } = renderHook(() => useValidation({
       initialValue: { email: '', age: 0 },
@@ -127,6 +166,36 @@ describe('useValidation prototype', () => {
     expect(result.current.value.createdAt.getTime()).toBe(createdAt.getTime());
     expect(result.current.value.metadata).toBe(metadata);
     expect(result.current.value.metadata.get('role')).toBe('admin');
+  });
+
+  it('uses the latest validation rules through a captured value reference', async () => {
+    const { result, rerender } = renderHook(
+      ({ minimum }) => useValidation({
+        initialValue: { age: 18 },
+        validate: {
+          age: {
+            minimum: (value) => value >= minimum || `Must be at least ${minimum}`,
+          },
+        },
+      }),
+      { initialProps: { minimum: 18 } },
+    );
+    const value = result.current.value;
+
+    await act(async () => {
+      await result.current.validate();
+    });
+    expect(result.current.valid).toBe(true);
+
+    rerender({ minimum: 21 });
+
+    act(() => {
+      value.age = 20;
+    });
+
+    await waitFor(() => {
+      expect(result.current.errors.age).toEqual(['Must be at least 21']);
+    });
   });
 
   it('keeps a captured root value reference live across reactive rerenders', async () => {
@@ -526,6 +595,65 @@ describe('useValidation prototype', () => {
 
     expect(result.current.errors).toEqual({});
     expect(result.current.validating).toBe(false);
+  });
+
+  it('treats symbol-path Standard Schema issues as real errors', async () => {
+    const field = Symbol('field');
+    const schema = {
+      '~standard': {
+        version: 1,
+        vendor: 'symbol-test',
+        validate() {
+          return {
+            issues: [{ path: [field], message: 'Symbol field is invalid' }],
+          };
+        },
+      },
+    };
+    const { result } = renderHook(() => useValidation({
+      initialValue: {},
+      schema,
+    }));
+
+    await act(async () => {
+      await result.current.validate();
+    });
+
+    expect(result.current.valid).toBe(false);
+    expect(result.current.errors[field]).toEqual(['Symbol field is invalid']);
+  });
+
+  it('contains failures from automatic async validation without unhandled rejection', async () => {
+    const error = new Error('network unavailable');
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { result } = renderHook(() => useValidation({
+      initialValue: { username: 'ok' },
+      validate: {
+        username: {
+          available: async (value) => {
+            if (value === 'throw') throw error;
+            return true;
+          },
+        },
+      },
+    }));
+
+    await act(async () => {
+      await result.current.validate();
+    });
+
+    act(() => {
+      result.current.value.username = 'throw';
+    });
+
+    await waitFor(() => {
+      expect(consoleError).toHaveBeenCalledWith(
+        '[use-validation] automatic validation failed',
+        error,
+      );
+    });
+    expect(result.current.validating).toBe(false);
+    consoleError.mockRestore();
   });
 
   it('rejects objects that are not Standard Schema implementations', async () => {
