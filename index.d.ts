@@ -32,11 +32,16 @@ export type StandardSchema = {
 };
 export type ValidatorResult = boolean | string | undefined | Promise<boolean | string | undefined>;
 export type Validator = (value: any, form: FormValue) => ValidatorResult;
+export type ValidatorSetFor<Value, Root extends FormValue> = Record<string, (value: Value, form: Root) => ValidatorResult>;
 /**
- * Native validation mirrors nested object fields. Arrays are validated as a
- * whole value; array-item schemas are better expressed with Standard Schema.
+ * A native rule node follows the value shape. Arrays can use $self for rules
+ * on the complete array and $each for rules on every current item.
  */
-export type ValidationRulesFor<T extends object, Root extends FormValue> = { [K in keyof T]?: T[K] extends OpaqueValue ? Record<string, (value: T[K], form: Root) => ValidatorResult> : T[K] extends readonly unknown[] ? Record<string, (value: T[K], form: Root) => ValidatorResult> : T[K] extends object ? ValidationRulesFor<T[K], Root> : Record<string, (value: T[K], form: Root) => ValidatorResult>; };
+export type ValidationNodeFor<Value, Root extends FormValue> = Value extends OpaqueValue ? ValidatorSetFor<Value, Root> : Value extends readonly (infer Item)[] ? ValidatorSetFor<Value, Root> | {
+    $self?: ValidatorSetFor<Value, Root>;
+    $each: ValidationNodeFor<Item, Root>;
+} : Value extends object ? ValidationRulesFor<Value, Root> : ValidatorSetFor<Value, Root>;
+export type ValidationRulesFor<T extends object, Root extends FormValue> = { [K in keyof T]?: ValidationNodeFor<T[K], Root>; };
 /**
  * Creates a tiny reactive form value with validation.
  *
