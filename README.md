@@ -66,7 +66,6 @@ Current Zod and Yup schemas both work through this same Standard Schema boundary
 form.value       reactive form object
 form.errors      normalized field error arrays
 form.valid       whether the current validation result has no errors
-form.dirty       whether validation has been activated
 form.validating  whether the latest validation is running
 
 form.validate()  validate the whole form; always async
