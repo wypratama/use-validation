@@ -28,20 +28,31 @@ const STANDARD_SCHEMA = '~standard';
 /** @typedef {boolean | string | undefined | Promise<boolean | string | undefined>} ValidatorResult */
 /** @typedef {(value: any, form: FormValue) => ValidatorResult} Validator */
 /**
- * Native validation mirrors nested object fields. Arrays are validated as a
- * whole value; array-item schemas are better expressed with Standard Schema.
+ * @template Value
+ * @template {FormValue} Root
+ * @typedef {Record<string, (value: Value, form: Root) => ValidatorResult>} ValidatorSetFor
+ */
+/**
+ * A native rule node follows the value shape. Arrays can use $self for rules
+ * on the complete array and $each for rules on every current item.
  *
+ * @template Value
+ * @template {FormValue} Root
+ * @typedef {Value extends OpaqueValue
+ *   ? ValidatorSetFor<Value, Root>
+ *   : Value extends readonly (infer Item)[]
+ *     ? ValidatorSetFor<Value, Root> | {
+ *         $self?: ValidatorSetFor<Value, Root>,
+ *         $each: ValidationNodeFor<Item, Root>
+ *       }
+ *     : Value extends object
+ *       ? ValidationRulesFor<Value, Root>
+ *       : ValidatorSetFor<Value, Root>} ValidationNodeFor
+ */
+/**
  * @template {object} T
  * @template {FormValue} Root
- * @typedef {{ [K in keyof T]?:
- *   T[K] extends OpaqueValue
- *     ? Record<string, (value: T[K], form: Root) => ValidatorResult>
- *     : T[K] extends readonly unknown[]
- *       ? Record<string, (value: T[K], form: Root) => ValidatorResult>
- *       : T[K] extends object
- *         ? ValidationRulesFor<T[K], Root>
- *         : Record<string, (value: T[K], form: Root) => ValidatorResult>
- * }} ValidationRulesFor
+ * @typedef {{ [K in keyof T]?: ValidationNodeFor<T[K], Root> }} ValidationRulesFor
  */
 
 /**
@@ -200,6 +211,25 @@ const runRuleNode = async (node, value, form, path, errors) => {
       }
     }
     addErrors(errors, form, path, messages);
+    return;
+  }
+
+  if (Array.isArray(value) && ('$self' in node || '$each' in node)) {
+    if (isValidatorSet(node.$self)) {
+      await runRuleNode(node.$self, value, form, path, errors);
+    }
+
+    if (isObject(node.$each)) {
+      for (let index = 0; index < value.length; index += 1) {
+        await runRuleNode(
+          /** @type {Record<string, any>} */ (node.$each),
+          value[index],
+          form,
+          [...path, index],
+          errors,
+        );
+      }
+    }
     return;
   }
 
