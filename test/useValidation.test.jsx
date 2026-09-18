@@ -409,6 +409,29 @@ describe('useValidation prototype', () => {
     });
   });
 
+  it('lets explicit validate supersede a queued automatic validation', async () => {
+    const rule = vi.fn((value) => Boolean(value) || 'Required');
+    const { result } = renderHook(() => useValidation({
+      initialValue: { email: '' },
+      validate: { email: { rule } },
+    }));
+
+    await act(async () => {
+      await result.current.validate();
+    });
+    rule.mockClear();
+
+    let allowed;
+    await act(async () => {
+      result.current.value.email = 'valid@example.com';
+      allowed = await result.current.validate();
+    });
+
+    expect(allowed).toBe(true);
+    expect(rule).toHaveBeenCalledTimes(1);
+    expect(result.current.valid).toBe(true);
+  });
+
   it('batches one synchronous mutation turn into one automatic validation', async () => {
     const required = vi.fn((value) => value.length > 0 || 'Add a tag');
     const { result } = renderHook(() => useValidation({
