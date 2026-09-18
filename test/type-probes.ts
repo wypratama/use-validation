@@ -41,3 +41,33 @@ const yupForm = useValidation({
   schema: yup.object({ email: yup.string().email().required() }),
 });
 yupForm.value.email = 'yup@example.com';
+
+
+const nested = useValidation({
+  initialValue: {
+    profile: {
+      email: '',
+      age: 0,
+    },
+  },
+  validate: {
+    profile: {
+      email: {
+        required(value, form) {
+          value.toUpperCase();
+          form.profile.age.toFixed();
+          return Boolean(value) || 'Required';
+        },
+      },
+      age: {
+        adult(value) {
+          value.toFixed();
+          return value >= 18 || 'Adult only';
+        },
+      },
+    },
+  },
+});
+
+nested.errors.profile?.email?.[0]?.toUpperCase();
+nested.errors.profile?.age?.[0]?.toUpperCase();
