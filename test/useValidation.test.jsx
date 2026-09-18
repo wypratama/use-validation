@@ -472,6 +472,133 @@ describe('useValidation prototype', () => {
     expect(result.current.errors.profile?._errors).toEqual(['Profile is incomplete']);
   });
 
+  it('validates a native array and each object item at the same time', async () => {
+    const { result } = renderHook(() => useValidation({
+      initialValue: {
+        children: [
+          { name: '', age: 0, idNumber: '' },
+        ],
+      },
+      validate: {
+        children: {
+          $self: {
+            maxTwo: (children) => (
+              children.length <= 2 || 'Maximum 2 children'
+            ),
+          },
+          $each: {
+            name: {
+              required: (value) => Boolean(value) || 'Child name is required',
+            },
+            age: {
+              required: (value) => value > 0 || 'Child age is required',
+            },
+            idNumber: {
+              required: (value) => Boolean(value) || 'Child ID is required',
+            },
+          },
+        },
+      },
+    }));
+
+    await act(async () => {
+      await result.current.validate();
+    });
+
+    expect(result.current.errors.children?.[0]?.name).toEqual([
+      'Child name is required',
+    ]);
+    expect(result.current.errors.children?.[0]?.age).toEqual([
+      'Child age is required',
+    ]);
+    expect(result.current.errors.children?.[0]?.idNumber).toEqual([
+      'Child ID is required',
+    ]);
+    expect(result.current.errors.children?._errors).toBeUndefined();
+
+    act(() => {
+      result.current.value.children[0] = {
+        name: 'Alice',
+        age: 8,
+        idNumber: 'ID-1',
+      };
+      result.current.value.children.push({
+        name: 'Bob',
+        age: 6,
+        idNumber: 'ID-2',
+      });
+      result.current.value.children.push({
+        name: '',
+        age: 0,
+        idNumber: '',
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.errors.children?._errors).toEqual([
+        'Maximum 2 children',
+      ]);
+      expect(result.current.errors.children?.[2]?.name).toEqual([
+        'Child name is required',
+      ]);
+    });
+
+    act(() => {
+      result.current.value.children[2] = {
+        name: 'Charlie',
+        age: 4,
+        idNumber: 'ID-3',
+      };
+    });
+
+    await waitFor(() => {
+      expect(result.current.errors.children?.[2]).toBeUndefined();
+      expect(result.current.errors.children?._errors).toEqual([
+        'Maximum 2 children',
+      ]);
+    });
+
+    act(() => {
+      result.current.value.children.pop();
+    });
+
+    await waitFor(() => expect(result.current.valid).toBe(true));
+    expect(result.current.errors).toEqual({});
+  });
+
+  it('validates every primitive array item with native $each rules', async () => {
+    const { result } = renderHook(() => useValidation({
+      initialValue: { children: [''] },
+      validate: {
+        children: {
+          $each: {
+            required: (value) => Boolean(value) || 'Child name is required',
+          },
+        },
+      },
+    }));
+
+    await act(async () => {
+      await result.current.validate();
+    });
+
+    expect(result.current.errors.children?.[0]).toEqual([
+      'Child name is required',
+    ]);
+
+    act(() => {
+      result.current.value.children[0] = 'Alice';
+      result.current.value.children.push('');
+    });
+
+    await waitFor(() => {
+      expect(result.current.errors.children?.[0]).toBeUndefined();
+      expect(result.current.errors.children?.[1]).toEqual([
+        'Child name is required',
+      ]);
+    });
+  });
+
   it('validates native array fields as a whole value', async () => {
     const { result } = renderHook(() => useValidation({
       initialValue: { tags: [] },
