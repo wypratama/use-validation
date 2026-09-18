@@ -307,15 +307,17 @@ const useValidation = ({ initialValue, validate: rules, schema }) => {
     const id = ++validationId.current;
     setValidating(true);
     try {
+      const snapshot = cloneInitial(value);
       const nextErrors = schema
-        ? await runSchema(schema, value)
+        ? await runSchema(schema, snapshot)
         : await runRules(
             /** @type {Record<string, any>} */ (rules ?? {}),
-            /** @type {FormValue} */ (value),
+            /** @type {FormValue} */ (snapshot),
           );
       const valid = Object.keys(nextErrors).length === 0;
-      if (id === validationId.current) setErrors(nextErrors);
-      return valid;
+      const latest = id === validationId.current;
+      if (latest) setErrors(nextErrors);
+      return latest ? valid : false;
     } finally {
       if (id === validationId.current) setValidating(false);
     }
