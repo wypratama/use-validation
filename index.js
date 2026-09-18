@@ -364,6 +364,7 @@ const useValidation = ({ initialValue, validate: rules, schema }) => {
     [onChange, value],
   );
 
+  /** @param {T} [nextInitialValue] */
   const reset = useCallback((nextInitialValue) => {
     ++validationId.current;
 
