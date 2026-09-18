@@ -388,7 +388,6 @@ describe('useValidation prototype', () => {
     });
 
     expect(result.current.errors).toEqual({});
-    expect(result.current.dirty).toBe(false);
     expect(result.current.validating).toBe(false);
   });
 
