@@ -24,7 +24,7 @@ const STANDARD_SCHEMA = '~standard';
  */
 /** @typedef {{ message: string, path?: readonly IssuePathSegment[] }} StandardIssue */
 /** @typedef {{ issues?: readonly StandardIssue[] }} StandardResult */
-/** @typedef {{ '~standard': { validate: (value: unknown) => StandardResult | Promise<StandardResult> } }} StandardSchema */
+/** @typedef {{ '~standard': { version: 1, vendor: string, validate: (value: unknown, options?: { libraryOptions?: Record<string, unknown> }) => StandardResult | Promise<StandardResult> } }} StandardSchema */
 /** @typedef {boolean | string | undefined | Promise<boolean | string | undefined>} ValidatorResult */
 /** @typedef {(value: any, form: FormValue) => ValidatorResult} Validator */
 /**
@@ -232,8 +232,13 @@ const runRules = async (rules, value) => {
  */
 const runSchema = async (schema, value) => {
   const standard = schema?.[STANDARD_SCHEMA];
-  if (!standard || typeof standard.validate !== 'function') {
-    throw new TypeError('schema must implement Standard Schema');
+  if (
+    !standard
+    || standard.version !== 1
+    || typeof standard.vendor !== 'string'
+    || typeof standard.validate !== 'function'
+  ) {
+    throw new TypeError('schema must implement Standard Schema V1');
   }
   const result = await standard.validate(value);
   return normalizeIssues(result.issues, value);
