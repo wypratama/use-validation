@@ -152,7 +152,7 @@ const createObservedProxy = (value, onChange, cache = new WeakMap()) => {
  * }} options
  * @returns {{
  *   value: T,
- *   errors: Partial<Record<keyof T|'_form', string[]>>,
+ *   errors: ErrorMap,
  *   valid: boolean,
  *   dirty: boolean,
  *   validating: boolean,
@@ -227,7 +227,7 @@ const useValidation = ({ initialValue, validate: rules, schema }) => {
 
   return {
     value: observedValue,
-    errors: /** @type {Partial<Record<keyof T|'_form', string[]>>} */ (errors),
+    errors,
     valid: Object.keys(errors).length === 0,
     dirty,
     validating,
