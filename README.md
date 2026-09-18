@@ -1,6 +1,53 @@
 # @wypratama/use-validation
 
-Tiny reactive form validation for React. Give it an object and one validation strategy, mutate the value normally, and read the errors.
+Tiny, opinionated reactive form validation for React.
+
+`use-validation` is deliberately not a general form framework. It treats a form as a reactive value plus validation state, with a small lifecycle that is intentionally different from libraries that validate on mount, registration, blur, or every change from the beginning.
+
+## How this library thinks about forms
+
+**Fields are just values.** There is no field registration API, controller, touched state, or special field component. Read and assign values directly:
+
+```js
+form.value.email
+form.value.email = 'me@example.com'
+```
+
+**Validation starts only when you explicitly ask for it.** Before the first `validate()`, every mutation is silent. That includes user input, API hydration for edit forms, programmatic assignments, and view-only data loading:
+
+```js
+form.value.phone = ''
+
+form.errors // {}
+form.valid  // true
+```
+
+This means an old persisted record can be loaded even if newer validation rules would reject it, without immediately showing errors to the user.
+
+**After the first `validate()`, validation stays active.** Every later mutation revalidates automatically so visible errors remain current. User-driven and programmatic/cascading assignments are intentionally treated the same:
+
+```js
+await form.validate()
+
+form.value.country = 'SG'
+form.value.phone = normalizePhone(form.value.phone)
+// resulting form state is revalidated automatically
+```
+
+**`valid` mirrors the current error bag.** It starts `true` because no errors have been discovered yet. Use the result of `await form.validate()` for submit-time control flow, and use `form.valid` for reactive UI state.
+
+**Resetting also resets the validation lifecycle.** `reset()` returns to the current baseline and makes validation dormant again. `reset(value)` loads a new baseline, which is useful for edit forms that hydrate from an API.
+
+If that lifecycle matches how you want forms to behave, the rest of the API is intentionally small:
+
+```text
+form.value
+form.errors
+form.valid
+form.validating
+form.validate()
+form.reset()
+```
 
 ## Inline validation
 
