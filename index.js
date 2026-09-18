@@ -5,26 +5,60 @@ import useReactive from 'react-use-reactive';
 
 const STANDARD_SCHEMA = '~standard';
 
+/** @typedef {Record<string, any>} FormValue */
+/** @typedef {Record<string, string[]>} ErrorMap */
+/** @typedef {{ key: PropertyKey } | PropertyKey} IssuePathSegment */
+/** @typedef {{ message: string, path?: readonly IssuePathSegment[] }} StandardIssue */
+/** @typedef {{ issues?: readonly StandardIssue[] }} StandardResult */
+/** @typedef {{ '~standard': { validate: (value: unknown) => StandardResult | Promise<StandardResult> } }} StandardSchema */
+/** @typedef {(value: any, form: FormValue) => boolean | string | undefined | Promise<boolean | string | undefined>} Validator */
+/** @typedef {Record<string, Record<string, Validator>>} ValidationRules */
+
+/**
+ * @param {unknown} value
+ * @returns {value is object}
+ */
 const isObject = (value) => value !== null && typeof value === 'object';
 
+/**
+ * Clone the initial plain data so reset is not affected by later mutations.
+ * Opaque object values stay by reference, matching react-use-reactive's leaf semantics.
+ *
+ * @template T
+ * @param {T} value
+ * @returns {T}
+ */
 const cloneInitial = (value) => {
-  if (Array.isArray(value)) return value.map(cloneInitial);
+  if (Array.isArray(value)) {
+    return /** @type {T} */ (value.map((item) => cloneInitial(item)));
+  }
   if (!isObject(value)) return value;
   const proto = Object.getPrototypeOf(value);
   if (proto !== Object.prototype && proto !== null) return value;
   const copy = Object.create(proto);
-  for (const key of Reflect.ownKeys(value)) copy[key] = cloneInitial(value[key]);
-  return copy;
+  for (const key of Reflect.ownKeys(value)) {
+    copy[key] = cloneInitial(Reflect.get(value, key));
+  }
+  return /** @type {T} */ (copy);
 };
 
+/**
+ * @param {StandardIssue} issue
+ * @returns {string}
+ */
 const firstPathKey = (issue) => {
-  const segment = issue?.path?.[0];
+  const segment = issue.path?.[0];
   if (segment === undefined) return '_form';
   if (isObject(segment) && 'key' in segment) return String(segment.key);
   return String(segment);
 };
 
+/**
+ * @param {readonly StandardIssue[]} [issues]
+ * @returns {ErrorMap}
+ */
 const normalizeIssues = (issues = []) => {
+  /** @type {ErrorMap} */
   const errors = {};
   for (const issue of issues) {
     const key = firstPathKey(issue);
@@ -33,7 +67,13 @@ const normalizeIssues = (issues = []) => {
   return errors;
 };
 
+/**
+ * @param {ValidationRules} rules
+ * @param {FormValue} value
+ * @returns {Promise<ErrorMap>}
+ */
 const runRules = async (rules, value) => {
+  /** @type {ErrorMap} */
   const errors = {};
   for (const [field, constraints] of Object.entries(rules)) {
     const messages = [];
@@ -48,6 +88,11 @@ const runRules = async (rules, value) => {
   return errors;
 };
 
+/**
+ * @param {StandardSchema} schema
+ * @param {FormValue} value
+ * @returns {Promise<ErrorMap>}
+ */
 const runSchema = async (schema, value) => {
   const standard = schema?.[STANDARD_SCHEMA];
   if (!standard || typeof standard.validate !== 'function') {
@@ -57,10 +102,20 @@ const runSchema = async (schema, value) => {
   return normalizeIssues(result.issues);
 };
 
+/**
+ * Add mutation observation around a reactive value without owning its state.
+ *
+ * @template T
+ * @param {T} value
+ * @param {() => void} onChange
+ * @param {WeakMap<object, object>} [cache]
+ * @returns {T}
+ */
 const createObservedProxy = (value, onChange, cache = new WeakMap()) => {
   if (!isObject(value)) return value;
+
   const cached = cache.get(value);
-  if (cached) return cached;
+  if (cached) return /** @type {T} */ (cached);
 
   const proxy = new Proxy(value, {
     get(target, key, receiver) {
@@ -79,7 +134,7 @@ const createObservedProxy = (value, onChange, cache = new WeakMap()) => {
     },
   });
   cache.set(value, proxy);
-  return proxy;
+  return /** @type {T} */ (proxy);
 };
 
 /**
@@ -89,11 +144,11 @@ const createObservedProxy = (value, onChange, cache = new WeakMap()) => {
  * Schema implementation. Errors stay hidden until the first `validate()`;
  * after that, mutations automatically keep validation in sync.
  *
- * @template {object} T
+ * @template {FormValue} T
  * @param {{
  *   initialValue: T,
  *   validate?: Partial<Record<keyof T, Record<string, (value: any, form: T) => boolean|string|undefined|Promise<boolean|string|undefined>>>>,
- *   schema?: { '~standard': { validate: (value: unknown) => any } }
+ *   schema?: StandardSchema
  * }} options
  * @returns {{
  *   value: T,
@@ -112,7 +167,8 @@ const useValidation = ({ initialValue, validate: rules, schema }) => {
 
   const initial = useRef(cloneInitial(initialValue));
   const value = useReactive(initialValue);
-  const [errors, setErrors] = useState({});
+  /** @type {[ErrorMap, import('react').Dispatch<import('react').SetStateAction<ErrorMap>]} */
+  const [errors, setErrors] = useState(/** @type {ErrorMap} */ ({}));
   const [dirty, setDirty] = useState(false);
   const [validating, setValidating] = useState(false);
   const dirtyRef = useRef(false);
@@ -124,7 +180,10 @@ const useValidation = ({ initialValue, validate: rules, schema }) => {
     try {
       const nextErrors = schema
         ? await runSchema(schema, value)
-        : await runRules(rules ?? {}, value);
+        : await runRules(
+            /** @type {ValidationRules} */ (rules ?? {}),
+            /** @type {FormValue} */ (value),
+          );
       const valid = Object.keys(nextErrors).length === 0;
       if (id === validationId.current) setErrors(nextErrors);
       return valid;
@@ -153,10 +212,12 @@ const useValidation = ({ initialValue, validate: rules, schema }) => {
   const reset = useCallback(() => {
     ++validationId.current;
     for (const key of Reflect.ownKeys(value)) {
-      if (!Object.hasOwn(initial.current, key)) delete value[key];
+      if (!Object.hasOwn(initial.current, key)) {
+        Reflect.deleteProperty(value, key);
+      }
     }
     for (const key of Reflect.ownKeys(initial.current)) {
-      value[key] = cloneInitial(initial.current[key]);
+      Reflect.set(value, key, cloneInitial(Reflect.get(initial.current, key)));
     }
     dirtyRef.current = false;
     setDirty(false);
@@ -166,7 +227,7 @@ const useValidation = ({ initialValue, validate: rules, schema }) => {
 
   return {
     value: observedValue,
-    errors,
+    errors: /** @type {Partial<Record<keyof T|'_form', string[]>>} */ (errors),
     valid: Object.keys(errors).length === 0,
     dirty,
     validating,
