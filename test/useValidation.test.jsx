@@ -440,6 +440,67 @@ describe('useValidation prototype', () => {
     expect(result.current.validating).toBe(false);
   });
 
+  it('never lets a stale async validate call authorize submission', async () => {
+    const delayed = async (value) => {
+      await new Promise((resolve) => setTimeout(resolve, value === 'good' ? 30 : 1));
+      return value === 'good' || 'Value is invalid';
+    };
+    const { result } = renderHook(() => useValidation({
+      initialValue: { status: 'good' },
+      validate: { status: { delayed } },
+    }));
+
+    let submitValidation;
+    act(() => {
+      submitValidation = result.current.validate();
+    });
+
+    act(() => {
+      result.current.value.status = 'bad';
+    });
+
+    let allowed;
+    await act(async () => {
+      allowed = await submitValidation;
+      await new Promise((resolve) => setTimeout(resolve, 40));
+    });
+
+    expect(allowed).toBe(false);
+    expect(result.current.value.status).toBe('bad');
+    expect(result.current.errors.status).toEqual(['Value is invalid']);
+    expect(result.current.valid).toBe(false);
+  });
+
+  it('validates cross-field rules against one coherent snapshot', async () => {
+    const { result } = renderHook(() => useValidation({
+      initialValue: { password: 'one', confirm: 'one' },
+      validate: {
+        confirm: {
+          matches: async (value, form) => {
+            await new Promise((resolve) => setTimeout(resolve, 20));
+            return value === form.password || 'Passwords must match';
+          },
+        },
+      },
+    }));
+
+    let first;
+    act(() => {
+      first = result.current.validate();
+    });
+
+    act(() => {
+      result.current.value.password = 'two';
+    });
+
+    await act(async () => {
+      await first;
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    });
+
+    expect(result.current.errors.confirm).toEqual(['Passwords must match']);
+  });
+
   it('does not let an in-flight validation repopulate errors after reset', async () => {
     const delayedInvalid = async () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
