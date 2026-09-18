@@ -352,7 +352,7 @@ const useValidation = ({ initialValue, validate: rules, schema }) => {
 
   return {
     value: observedValue,
-    errors,
+    errors: /** @type {any} */ (errors),
     valid: Object.keys(errors).length === 0,
     validating,
     validate,
