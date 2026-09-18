@@ -167,7 +167,7 @@ const useValidation = ({ initialValue, validate: rules, schema }) => {
 
   const initial = useRef(cloneInitial(initialValue));
   const value = useReactive(initialValue);
-  /** @type {[ErrorMap, import('react').Dispatch<import('react').SetStateAction<ErrorMap>]} */
+  /** @type {[ErrorMap, import('react').Dispatch<import('react').SetStateAction<ErrorMap>>]} */
   const [errors, setErrors] = useState(/** @type {ErrorMap} */ ({}));
   const [dirty, setDirty] = useState(false);
   const [validating, setValidating] = useState(false);
