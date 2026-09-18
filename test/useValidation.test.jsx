@@ -2,6 +2,7 @@
 
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import * as yup from 'yup';
 import { z } from 'zod';
 import useValidation from '../index.js';
 
@@ -62,6 +63,31 @@ describe('useValidation prototype', () => {
     act(() => {
       result.current.value.email = 'me@example.com';
       result.current.value.age = 22;
+    });
+
+    await waitFor(() => expect(result.current.valid).toBe(true));
+  });
+
+  it('accepts Yup through the same Standard Schema API', async () => {
+    const { result } = renderHook(() => useValidation({
+      initialValue: { email: '', age: 0 },
+      schema: yup.object({
+        email: yup.string().email().required(),
+        age: yup.number().min(18).required(),
+      }),
+    }));
+
+    await act(async () => {
+      await result.current.validate();
+    });
+
+    expect(result.current.valid).toBe(false);
+    expect(result.current.errors.email?.length).toBeGreaterThan(0);
+    expect(result.current.errors.age?.length).toBeGreaterThan(0);
+
+    act(() => {
+      result.current.value.email = 'yup@example.com';
+      result.current.value.age = 25;
     });
 
     await waitFor(() => expect(result.current.valid).toBe(true));
