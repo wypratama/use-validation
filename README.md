@@ -138,7 +138,7 @@ form.validate()  validate now and return Promise<boolean>
 form.reset()     restore initial values and clear validation state
 ```
 
-`form.valid` starts `true` because the initial error bag is empty. Use the boolean returned by `validate()` for submit-time control flow; use `form.valid` as reactive UI state.
+`form.valid` starts `true` because the initial error bag is empty. Use the boolean returned by `validate()` for submit-time control flow; use `form.valid` as reactive UI state. Each async validation runs against a snapshot of the form. If an explicit `validate()` becomes stale because the form changes while it is running, that call resolves `false` and the newer validation owns the reactive error state.
 
 `reset()` restores the initial value, empties the error bag, sets `valid` back to `true`, and deactivates automatic revalidation until `validate()` is explicitly called again.
 
