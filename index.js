@@ -6,8 +6,19 @@ import useReactive from 'react-use-reactive';
 const STANDARD_SCHEMA = '~standard';
 
 /** @typedef {Record<string, any>} FormValue */
-/** @typedef {Record<string, string[]>} ErrorMap */
+/** @typedef {Record<PropertyKey, any>} ErrorBag */
 /** @typedef {{ key: PropertyKey } | PropertyKey} IssuePathSegment */
+/**
+ * Error values mirror the shape of the form. Scalar fields end in string[]
+ * while objects and arrays contain nested error values.
+ *
+ * @template T
+ * @typedef {T extends readonly unknown[]
+ *   ? (Array<ErrorTree<T[number]> | undefined> & { _errors?: string[] })
+ *   : T extends object
+ *     ? ({ [K in keyof T]?: ErrorTree<T[K]> } & { _errors?: string[] })
+ *     : string[]} ErrorTree
+ */
 /** @typedef {{ message: string, path?: readonly IssuePathSegment[] }} StandardIssue */
 /** @typedef {{ issues?: readonly StandardIssue[] }} StandardResult */
 /** @typedef {{ '~standard': { validate: (value: unknown) => StandardResult | Promise<StandardResult> } }} StandardSchema */
@@ -15,8 +26,18 @@ const STANDARD_SCHEMA = '~standard';
 /** @typedef {(value: any, form: FormValue) => ValidatorResult} Validator */
 /** @typedef {Record<string, Record<string, Validator>>} ValidationRules */
 /**
+ * Native validation mirrors the form shape. Structural object fields may
+ * either contain nested rules or validators for the object itself.
+ *
  * @template {FormValue} T
- * @typedef {{ [K in keyof T]?: Record<string, (value: T[K], form: T) => ValidatorResult> }} ValidationRulesFor
+ * @template {FormValue} Root
+ * @typedef {{ [K in keyof T]?:
+ *   T[K] extends readonly unknown[]
+ *     ? Record<string, (value: T[K], form: Root) => ValidatorResult>
+ *     : T[K] extends FormValue
+ *       ? ValidationRulesFor<T[K], Root> | Record<string, (value: T[K], form: Root) => ValidatorResult>
+ *       : Record<string, (value: T[K], form: Root) => ValidatorResult>
+ * }} ValidationRulesFor
  */
 
 /**
@@ -63,55 +84,141 @@ const cloneInitial = (value) => {
 };
 
 /**
- * @param {StandardIssue} issue
- * @returns {string}
+ * @param {IssuePathSegment} segment
+ * @returns {PropertyKey}
  */
-const firstPathKey = (issue) => {
-  const segment = issue.path?.[0];
-  if (segment === undefined) return '_form';
-  if (isObject(segment) && 'key' in segment) return String(segment.key);
-  return String(segment);
+const pathKey = (segment) => (
+  isObject(segment) && 'key' in segment ? segment.key : segment
+);
+
+/**
+ * @param {unknown} value
+ * @returns {ErrorBag}
+ */
+const createErrorContainer = (value) => (
+  Array.isArray(value) ? [] : {}
+);
+
+/**
+ * Add messages to an error tree while preserving the form's shape.
+ * Structural object/array errors live in `_errors` so child errors can
+ * coexist at the same path.
+ *
+ * @param {ErrorBag} errors
+ * @param {FormValue} form
+ * @param {readonly PropertyKey[]} path
+ * @param {readonly string[]} messages
+ */
+const addErrors = (errors, form, path, messages) => {
+  if (messages.length === 0) return;
+
+  if (path.length === 0) {
+    (errors._form ??= []).push(...messages);
+    return;
+  }
+
+  /** @type {ErrorBag} */
+  let cursor = errors;
+  /** @type {any} */
+  let currentValue = form;
+
+  for (let index = 0; index < path.length; index += 1) {
+    const key = path[index];
+    const nextValue = currentValue?.[key];
+    const last = index === path.length - 1;
+
+    if (last) {
+      if (isStructural(nextValue)) {
+        const node = cursor[key] ??= createErrorContainer(nextValue);
+        (node._errors ??= []).push(...messages);
+      } else {
+        (cursor[key] ??= []).push(...messages);
+      }
+      return;
+    }
+
+    const nextKey = path[index + 1];
+    cursor = cursor[key] ??= (
+      Array.isArray(nextValue) || typeof nextKey === 'number' ? [] : {}
+    );
+    currentValue = nextValue;
+  }
 };
 
 /**
- * @param {readonly StandardIssue[]} [issues]
- * @returns {ErrorMap}
+ * @param {readonly StandardIssue[]} issues
+ * @param {FormValue} value
+ * @returns {ErrorBag}
  */
-const normalizeIssues = (issues = []) => {
-  /** @type {ErrorMap} */
+const normalizeIssues = (issues = [], value) => {
+  /** @type {ErrorBag} */
   const errors = {};
   for (const issue of issues) {
-    const key = firstPathKey(issue);
-    (errors[key] ??= []).push(String(issue.message));
+    const path = (issue.path ?? []).map(pathKey);
+    addErrors(errors, value, path, [String(issue.message)]);
   }
   return errors;
 };
 
 /**
- * @param {ValidationRules} rules
- * @param {FormValue} value
- * @returns {Promise<ErrorMap>}
+ * @param {unknown} node
+ * @returns {node is Record<string, Validator>}
  */
-const runRules = async (rules, value) => {
-  /** @type {ErrorMap} */
-  const errors = {};
-  for (const [field, constraints] of Object.entries(rules)) {
+const isValidatorSet = (node) => {
+  if (!isObject(node) || Array.isArray(node)) return false;
+  const validators = Object.values(node);
+  return validators.length > 0 && validators.every((item) => typeof item === 'function');
+};
+
+/**
+ * @param {Record<string, any>} node
+ * @param {any} value
+ * @param {FormValue} form
+ * @param {PropertyKey[]} path
+ * @param {ErrorBag} errors
+ * @returns {Promise<void>}
+ */
+const runRuleNode = async (node, value, form, path, errors) => {
+  if (isValidatorSet(node)) {
     const messages = [];
-    for (const validator of Object.values(constraints ?? {})) {
-      const result = await validator(value[field], value);
+    for (const validator of Object.values(node)) {
+      const result = await validator(value, form);
       if (result !== true && result !== undefined) {
         messages.push(result === false ? 'Invalid value' : String(result));
       }
     }
-    if (messages.length > 0) errors[field] = messages;
+    addErrors(errors, form, path, messages);
+    return;
   }
+
+  for (const [field, child] of Object.entries(node)) {
+    if (!isObject(child)) continue;
+    await runRuleNode(
+      /** @type {Record<string, any>} */ (child),
+      value?.[field],
+      form,
+      [...path, field],
+      errors: /** @type {ErrorTree<T> & { _form?: string[] }} */ (errors),
+    );
+  }
+};
+
+/**
+ * @param {Record<string, any>} rules
+ * @param {FormValue} value
+ * @returns {Promise<ErrorBag>}
+ */
+const runRules = async (rules, value) => {
+  /** @type {ErrorBag} */
+  const errors = {};
+  await runRuleNode(rules, value, value, [], errors);
   return errors;
 };
 
 /**
  * @param {StandardSchema} schema
  * @param {FormValue} value
- * @returns {Promise<ErrorMap>}
+ * @returns {Promise<ErrorBag>}
  */
 const runSchema = async (schema, value) => {
   const standard = schema?.[STANDARD_SCHEMA];
@@ -119,7 +226,7 @@ const runSchema = async (schema, value) => {
     throw new TypeError('schema must implement Standard Schema');
   }
   const result = await standard.validate(value);
-  return normalizeIssues(result.issues);
+  return normalizeIssues(result.issues, value);
 };
 
 /**
@@ -167,12 +274,12 @@ const createObservedProxy = (value, onChange, cache = new WeakMap()) => {
  * @template {FormValue} T
  * @param {{
  *   initialValue: T,
- *   validate?: ValidationRulesFor<T>,
+ *   validate?: ValidationRulesFor<T, T>,
  *   schema?: StandardSchema
  * }} options
  * @returns {{
  *   value: T,
- *   errors: ErrorMap,
+ *   errors: ErrorTree<T> & { _form?: string[] },
  *   valid: boolean,
  *   validating: boolean,
  *   validate: () => Promise<boolean>,
@@ -186,8 +293,8 @@ const useValidation = ({ initialValue, validate: rules, schema }) => {
 
   const initial = useRef(cloneInitial(initialValue));
   const value = useReactive(initialValue);
-  /** @type {[ErrorMap, import('react').Dispatch<import('react').SetStateAction<ErrorMap>>]} */
-  const [errors, setErrors] = useState(/** @type {ErrorMap} */ ({}));
+  /** @type {[ErrorBag, import('react').Dispatch<import('react').SetStateAction<ErrorBag>>]} */
+  const [errors, setErrors] = useState(/** @type {ErrorBag} */ ({}));
   const [validating, setValidating] = useState(false);
   const activeRef = useRef(false);
   const validationId = useRef(0);
@@ -199,7 +306,7 @@ const useValidation = ({ initialValue, validate: rules, schema }) => {
       const nextErrors = schema
         ? await runSchema(schema, value)
         : await runRules(
-            /** @type {ValidationRules} */ (rules ?? {}),
+            /** @type {Record<string, any>} */ (rules ?? {}),
             /** @type {FormValue} */ (value),
           );
       const valid = Object.keys(nextErrors).length === 0;
