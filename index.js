@@ -14,9 +14,9 @@ const STANDARD_SCHEMA = '~standard';
  *
  * @template T
  * @typedef {T extends readonly (infer U)[]
- *   ? Array<ErrorTree<U> | undefined>
+ *   ? (Array<ErrorTree<U> | undefined> & { _errors?: string[] })
  *   : T extends FormValue
- *     ? { [K in keyof T]?: ErrorTree<T[K]> }
+ *     ? ({ [K in keyof T]?: ErrorTree<T[K]> } & { _errors?: string[] })
  *     : string[]} ErrorTree
  */
 /** @typedef {{ message: string, path?: readonly IssuePathSegment[] }} StandardIssue */
