@@ -30,7 +30,7 @@ async function submit() {
 }
 ```
 
-The error bag starts empty, so `form.valid` starts `true`. Mutating the form does not validate anything until the first explicit `validate()`. After that first validation attempt, later mutations automatically revalidate so visible errors and `form.valid` stay current.
+The error bag starts empty, so `form.valid` starts `true`. **No mutation validates anything until the first explicit `validate()`**—including values assigned by application code while loading an edit form. After that first validation attempt, every later mutation participates in automatic revalidation, including programmatic/cascading assignments, so visible errors and `form.valid` stay current.
 
 This makes submit-time control flow and reactive UI state separate:
 
@@ -46,6 +46,45 @@ async function submit() {
   Submit
 </button>
 ```
+
+## Edit and view-only forms
+
+Loading an existing record does not immediately expose validation errors. This matters when newer validation requirements make older persisted data technically invalid.
+
+```jsx
+const form = useValidation({
+  initialValue: {
+    username: '',
+    phone: '',
+  },
+  validate: {
+    phone: {
+      required: value => Boolean(value) || 'Phone is required',
+    },
+  },
+})
+
+// An old record loaded from the API does not validate on assignment.
+form.reset({
+  username: 'legacy-user',
+  phone: '',
+})
+
+form.errors // {}
+form.valid  // true
+
+// The new requirement is shown only after the first validation attempt.
+await form.validate()
+
+form.errors.phone
+// ['Phone is required']
+```
+
+Passing a value to `reset(nextInitialValue)` also makes that value the new reset baseline. Calling `reset()` later returns to the loaded record. Both forms of `reset()` clear errors and return validation to its dormant state.
+
+A view-only form can therefore hydrate and update values without ever showing validation errors as long as it never calls `validate()`.
+
+The library deliberately does not distinguish user mutations from programmatic mutations. The lifecycle is the boundary: all mutations are silent before the first `validate()`; all mutations revalidate afterward.
 
 ## Nested values
 
@@ -141,12 +180,13 @@ form.valid       true when the current error bag is empty
 form.validating  true while the latest validation is running
 
 form.validate()  validate now and return Promise<boolean>
-form.reset()     restore initial values and clear validation state
+form.reset()     restore the current baseline and clear validation state
+form.reset(value) load a new baseline and clear validation state
 ```
 
 `form.valid` starts `true` because the initial error bag is empty. Use the boolean returned by `validate()` for submit-time control flow; use `form.valid` as reactive UI state. Each async validation runs against a snapshot of the form. If an explicit `validate()` becomes stale because the form changes while it is running, that call resolves `false` and the newer validation owns the reactive error state. Automatic validation uses the latest rules/schema even when a previously captured `form.value` reference is mutated.
 
-`reset()` restores the initial value, empties the error bag, sets `valid` back to `true`, and deactivates automatic revalidation until `validate()` is explicitly called again.
+`reset()` restores the current baseline, empties the error bag, sets `valid` back to `true`, and deactivates automatic revalidation until `validate()` is explicitly called again. `reset(value)` does the same while also making `value` the new baseline, which is useful when API data arrives for an edit form.
 
 `value` is powered by [react-use-reactive](https://github.com/wypratama/react-use-reactive). This package only adds mutation observation and validation; it does not contain a second React state/COW implementation.
 
