@@ -289,11 +289,15 @@ describe('useValidation prototype', () => {
     expect(result.current.validating).toBe(false);
   });
 
-  it('rejects objects that are not Standard Schema implementations', () => {
-    expect(() => renderHook(() => useValidation({
+  it('rejects objects that are not Standard Schema implementations', async () => {
+    const { result } = renderHook(() => useValidation({
       initialValue: { email: '' },
       schema: {},
-    }))).not.toThrow();
+    }));
+
+    await expect(result.current.validate()).rejects.toThrow(
+      'schema must implement Standard Schema',
+    );
   });
 
 });
