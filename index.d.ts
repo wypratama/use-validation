@@ -16,8 +16,10 @@ export type StandardSchema = {
         validate: (value: unknown) => StandardResult | Promise<StandardResult>;
     };
 };
-export type Validator = (value: any, form: FormValue) => boolean | string | undefined | Promise<boolean | string | undefined>;
+export type ValidatorResult = boolean | string | undefined | Promise<boolean | string | undefined>;
+export type Validator = (value: any, form: FormValue) => ValidatorResult;
 export type ValidationRules = Record<string, Record<string, Validator>>;
+export type ValidationRulesFor<T extends FormValue> = { [K in keyof T]?: Record<string, (value: T[K], form: T) => ValidatorResult>; };
 /**
  * Creates a tiny reactive form value with validation.
  *
@@ -28,7 +30,7 @@ export type ValidationRules = Record<string, Record<string, Validator>>;
  * @template {FormValue} T
  * @param {{
  *   initialValue: T,
- *   validate?: Partial<Record<keyof T, Record<string, (value: any, form: T) => boolean|string|undefined|Promise<boolean|string|undefined>>>>,
+ *   validate?: ValidationRulesFor<T>,
  *   schema?: StandardSchema
  * }} options
  * @returns {{
@@ -43,7 +45,7 @@ export type ValidationRules = Record<string, Record<string, Validator>>;
  */
 declare function useValidation<T extends FormValue>({ initialValue, validate: rules, schema }: {
     initialValue: T;
-    validate?: Partial<Record<keyof T, Record<string, (value: any, form: T) => boolean | string | undefined | Promise<boolean | string | undefined>>>>;
+    validate?: ValidationRulesFor<T>;
     schema?: StandardSchema;
 }): {
     value: T;
