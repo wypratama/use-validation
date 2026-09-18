@@ -58,7 +58,7 @@ if (await form.validate()) {
 }
 ```
 
-The prototype directly targets Standard Schema. Schema libraries that do not implement Standard Schema are not special-cased in the core.
+Current Zod and Yup schemas both work through this same Standard Schema boundary; no resolver or library-specific adapter is required. Other Standard Schema implementations can use the same `schema` option.
 
 ## API
 
