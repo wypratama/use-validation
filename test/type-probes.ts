@@ -71,3 +71,32 @@ const nested = useValidation({
 
 nested.errors.profile?.email?.[0]?.toUpperCase();
 nested.errors.profile?.age?.[0]?.toUpperCase();
+
+const arrays = useValidation({
+  initialValue: {
+    tags: [] as string[],
+  },
+  validate: {
+    tags: {
+      required(value, form) {
+        value.push('typed');
+        form.tags.length.toFixed();
+        return value.length > 0 || 'Add a tag';
+      },
+    },
+  },
+});
+
+arrays.errors.tags?._errors?.[0]?.toUpperCase();
+
+const nestedSchema = useValidation({
+  initialValue: {
+    users: [{ email: '' }],
+  },
+  schema: z.object({
+    users: z.array(z.object({ email: z.string().email() })),
+  }),
+});
+
+nestedSchema.errors.users?.[0]?.email?.[0]?.toUpperCase();
+nestedSchema.errors.users?._errors?.[0]?.toUpperCase();
