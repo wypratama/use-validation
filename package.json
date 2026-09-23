@@ -37,7 +37,7 @@
     "react": "^18.0.0 || ^19.0.0"
   },
   "dependencies": {
-    "react-use-reactive": "^2.0.0-beta.1"
+    "react-use-reactive": "^2.0.0"
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.0",
