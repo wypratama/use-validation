@@ -1,6 +1,22 @@
 # Changelog
 
 
+## v1.0.0
+
+[compare changes](https://github.com/wypratama/use-validation/compare/v1.0.0-beta.0...v1.0.0)
+
+### 🏡 Chore
+
+- Prepare stable validation release ([dfeea9c](https://github.com/wypratama/use-validation/commit/dfeea9c))
+
+### 🤖 CI
+
+- Harden workflow security ([136e5e4](https://github.com/wypratama/use-validation/commit/136e5e4))
+
+### ❤️ Contributors
+
+- Wicaksana Pratama <wicaksanapratama@gmail.com>
+
 ## v1.0.0-beta.0
 
 
