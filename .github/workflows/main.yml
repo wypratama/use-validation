@@ -24,7 +24,7 @@ jobs:
         with:
           node-version: 24
           package-manager-cache: false
-      - run: npm install
+      - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run check:types
@@ -41,7 +41,7 @@ jobs:
         with:
           node-version: 24
           package-manager-cache: false
-      - run: npm install
+      - run: npm ci
       - name: Swap React 19 for React 18
         run: npm install --no-save react@18.3.1 react-dom@18.3.1 @types/react@18.3.12
       - run: npm test
