@@ -1,6 +1,23 @@
 # Changelog
 
 
+## v1.0.1
+
+[compare changes](https://github.com/wypratama/use-validation/compare/v1.0.0...v1.0.1)
+
+### 🏡 Chore
+
+- Add package lock ([2c8fa33](https://github.com/wypratama/use-validation/commit/2c8fa33))
+
+### 🤖 CI
+
+- Use npm ci with package lock ([f24d6ef](https://github.com/wypratama/use-validation/commit/f24d6ef))
+- Use npm ci for releases ([5b8df4f](https://github.com/wypratama/use-validation/commit/5b8df4f))
+
+### ❤️ Contributors
+
+- Wicaksana Pratama <wicaksanapratama@gmail.com>
+
 ## v1.0.0
 
 [compare changes](https://github.com/wypratama/use-validation/compare/v1.0.0-beta.0...v1.0.0)
