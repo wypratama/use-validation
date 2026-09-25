@@ -67,7 +67,7 @@ jobs:
           package-manager-cache: false
 
       - name: Install dependencies
-        run: npm install --package-lock=false
+        run: npm ci
 
       - name: Configure git
         run: |
